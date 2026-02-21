@@ -1,6 +1,9 @@
 var global_brand_id = null;
 var global_p_category_id = null;
 var global_is_clear_local_storage = false;
+var pos_payment_enter_step = 0;
+var pos_payment_confirm_open = false;
+var pos_payment_confirm_armed = false;
 $(document).ready(function() {
     customer_set = false;
     //Prevent enter key function except texarea
@@ -614,16 +617,131 @@ $(document).ready(function() {
         $('#modal_payment').modal('show');
     });
 
-    $('#modal_payment').one('shown.bs.modal', function() {
-        $('#modal_payment')
-            .find('input')
-            .filter(':visible:first')
-            .focus()
-            .select();
+    $('#modal_payment').on('shown.bs.modal', function() {
+        pos_payment_enter_step = 0;
+        focus_payment_amount_field();
         if ($('form#edit_pos_sell_form').length == 0) {
             $(this).find('#method_0').change();
         }
     });
+
+    $('#modal_payment').on('hidden.bs.modal', function() {
+        pos_payment_enter_step = 0;
+    });
+
+    function focus_payment_amount_field() {
+        var amount_input = $('#modal_payment').find('input.payment-amount:visible:first');
+        if (amount_input.length) {
+            amount_input.focus().select();
+        }
+    }
+    function is_swal_open() {
+        return document.querySelector('.swal-overlay--show-modal') ||
+            document.querySelector('.swal-modal') ||
+            document.querySelector('.sweet-alert') ||
+            document.querySelector('.swal2-popup');
+    }
+    function get_swal_confirm_button() {
+        return document.querySelector('.swal-overlay--show-modal .swal-button--confirm') ||
+            document.querySelector('.swal-modal .swal-button--confirm') ||
+            document.querySelector('.sweet-alert .confirm') ||
+            document.querySelector('.swal2-confirm');
+    }
+    function trigger_swal_confirm() {
+        var confirmBtn = get_swal_confirm_button();
+        if (confirmBtn) {
+            confirmBtn.focus();
+            confirmBtn.click();
+            return true;
+        }
+        return false;
+    }
+    function focus_swal_confirm(attempts) {
+        var tries = attempts || 12;
+        var confirmBtn = get_swal_confirm_button();
+        if (confirmBtn) {
+            confirmBtn.focus();
+            return;
+        }
+        if (tries > 0) {
+            setTimeout(function() {
+                focus_swal_confirm(tries - 1);
+            }, 50);
+        }
+    }
+
+    $('#modal_payment').on('keydown', function(e) {
+        if (e.which !== 13) {
+            return;
+        }
+        var $target = $(e.target);
+        if ($target.is('textarea')) {
+            return;
+        }
+        if ($target.hasClass('select2-search__field') || $target.closest('.select2-container').length) {
+            return;
+        }
+        if ($target.is('#pos-save') || $target.closest('#pos-save').length) {
+            return;
+        }
+        if ($target.hasClass('payment-amount')) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            $target.change();
+            calculate_balance_due();
+            $target.blur();
+            var balance_span = $('#modal_payment').find('span.balance_due');
+            if (balance_span.length) {
+                balance_span.attr('tabindex', '-1').focus();
+            }
+            pos_payment_enter_step = 1;
+            return;
+        }
+        if (pos_payment_enter_step === 1) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            pos_payment_confirm_open = false;
+            pos_payment_confirm_armed = false;
+            swal({
+                title: LANG.sure,
+                icon: 'warning',
+                buttons: true,
+                dangerMode: false,
+                className: 'pos-confirm-swal',
+            }).then(function(willPay) {
+                pos_payment_confirm_open = false;
+                pos_payment_confirm_armed = false;
+                if (willPay) {
+                    $('#pos-save').trigger('click');
+                } else {
+                    pos_payment_enter_step = 0;
+                    focus_payment_amount_field();
+                }
+            });
+            setTimeout(function() {
+                pos_payment_confirm_open = true;
+                pos_payment_confirm_armed = true;
+                focus_swal_confirm(10);
+            }, 200);
+            return;
+        }
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        focus_payment_amount_field();
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (!pos_payment_confirm_open || !pos_payment_confirm_armed || e.which !== 13) {
+            return;
+        }
+        if (!is_swal_open()) {
+            return;
+        }
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        pos_payment_confirm_armed = false;
+        trigger_swal_confirm();
+    }, true);
 
     //Finalize without showing payment options
     $('button.pos-express-finalize').click(function() {
@@ -1332,6 +1450,26 @@ $(document).ready(function() {
     //Press enter on search product to jump into last quantty and vice-versa
     $('#search_product').keydown(function(e) {
         var key = e.which;
+        if (key == 13) {
+            var has_rows = $('#pos_table tbody tr').length > 0;
+            var input_val = $(this).val();
+            if (has_rows && (!input_val || input_val.trim() === '')) {
+                e.preventDefault();
+                $('#pos_table tbody tr:last')
+                    .find('input.pos_quantity')
+                    .focus()
+                    .select();
+                return;
+            }
+        }
+        if (key == 32) {
+            var input_val_space = $(this).val();
+            if (!input_val_space || input_val_space.trim() === '') {
+                e.preventDefault();
+                $('#pos-finalize').first().trigger('click');
+                return;
+            }
+        }
         if (key == 9) {
             // the tab key code
             e.preventDefault();
@@ -1343,12 +1481,23 @@ $(document).ready(function() {
             }
         }
     });
-    $('#pos_table').on('keypress', 'input.pos_quantity', function(e) {
+    $('#pos_table').on('keydown', 'input.pos_quantity', function(e) {
         var key = e.which;
         if (key == 13) {
             // the enter key code
             if (!$('#__is_mobile').length) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                $(this).change();
                 $('#search_product').focus();
+            }
+        }
+        if (key == 32) {
+            if (!$('#__is_mobile').length) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                $(this).change();
+                $('#pos-finalize').first().trigger('click');
             }
         }
     });

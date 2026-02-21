@@ -76,3 +76,35 @@
     {!! $__system_settings['additional_css'] !!}
 @endif
 
+@if(isset($pos_layout) && $pos_layout)
+	<style type="text/css">
+		:root {
+			--pos-focus-ring: #1e6cff;
+			--pos-focus-glow: rgba(30, 108, 255, 0.35);
+			--pos-focus-bg: #fff8d6;
+		}
+		body.pos-layout :focus {
+			outline: 3px solid var(--pos-focus-ring) !important;
+			outline-offset: 2px;
+			box-shadow: 0 0 0 3px var(--pos-focus-glow) !important;
+		}
+		body.pos-layout input:focus,
+		body.pos-layout select:focus,
+		body.pos-layout textarea:focus,
+		body.pos-layout .form-control:focus,
+		body.pos-layout .select2-container--default .select2-selection--single,
+		body.pos-layout .select2-container--default .select2-selection--multiple {
+			border-color: var(--pos-focus-ring) !important;
+			background-color: var(--pos-focus-bg) !important;
+		}
+		body.pos-layout .select2-container--default.select2-container--focus .select2-selection--single,
+		body.pos-layout .select2-container--default.select2-container--focus .select2-selection--multiple {
+			border-color: var(--pos-focus-ring) !important;
+		}
+		body.pos-layout .input-group:focus-within,
+		body.pos-layout .form-group:focus-within {
+			box-shadow: 0 0 0 3px var(--pos-focus-glow);
+			border-radius: 6px;
+		}
+	</style>
+@endif
