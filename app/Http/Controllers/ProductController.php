@@ -1256,7 +1256,34 @@ class ProductController extends Controller
                 $search_fields[] = 'sub_sku';
             }
 
-            $result = $this->productUtil->filterProduct($business_id, $search_term, $location_id, $not_for_selling, $price_group_id, $product_types, $search_fields, $check_qty);
+            $do_exact = ! empty($search_term) && ! preg_match('/\s/', $search_term);
+            if ($do_exact) {
+                $exact_result = $this->productUtil->filterProduct(
+                    $business_id,
+                    $search_term,
+                    $location_id,
+                    $not_for_selling,
+                    $price_group_id,
+                    $product_types,
+                    $search_fields,
+                    $check_qty,
+                    'exact'
+                );
+                if ($exact_result->count() > 0) {
+                    return json_encode($exact_result);
+                }
+            }
+
+            $result = $this->productUtil->filterProduct(
+                $business_id,
+                $search_term,
+                $location_id,
+                $not_for_selling,
+                $price_group_id,
+                $product_types,
+                $search_fields,
+                $check_qty
+            );
 
             return json_encode($result);
         }

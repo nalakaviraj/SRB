@@ -1,6 +1,248 @@
 var global_brand_id = null;
 var global_p_category_id = null;
 var global_is_clear_local_storage = false;
+var pos_payment_enter_step = 0;
+var pos_payment_confirm_open = false;
+var pos_payment_confirm_armed = false;
+var pos_local_index = {
+    key: null,
+    items: [],
+    exact_map: {},
+    loaded: false,
+    loading: false,
+    last_updated: 0,
+};
+var pos_local_index_ttl_ms = 20 * 60 * 1000;
+var pos_local_index_max_results = 30;
+var pos_idb_promise = null;
+
+function pos_get_price_group() {
+    if ($('#price_group').length > 0) {
+        return $('#price_group').val() || '';
+    }
+    return '';
+}
+
+function pos_get_index_key() {
+    var location_id = $('input#location_id').val() || '0';
+    var price_group = pos_get_price_group();
+    return 'pos_index_' + location_id + '_' + price_group;
+}
+
+function pos_prepare_index(items) {
+    var exact_map = {};
+    items.forEach(function(item) {
+        item.__lc_name = (item.name || '').toString().toLowerCase();
+        item.__lc_variation = (item.variation || '').toString().toLowerCase();
+        item.__lc_sku = (item.sku || '').toString().toLowerCase();
+        item.__lc_sub_sku = (item.sub_sku || '').toString().toLowerCase();
+        item.__lc_lot = (item.lot_number || '').toString().toLowerCase();
+        if (item.__lc_sub_sku) {
+            exact_map[item.__lc_sub_sku] = item;
+        }
+        if (item.__lc_sku) {
+            exact_map[item.__lc_sku] = item;
+        }
+    });
+    pos_local_index.items = items;
+    pos_local_index.exact_map = exact_map;
+}
+
+function pos_idb_open() {
+    if (!window.indexedDB) {
+        return Promise.resolve(null);
+    }
+    if (pos_idb_promise) {
+        return pos_idb_promise;
+    }
+    pos_idb_promise = new Promise(function(resolve, reject) {
+        var request = indexedDB.open('pos_product_index', 1);
+        request.onupgradeneeded = function(event) {
+            var db = event.target.result;
+            if (!db.objectStoreNames.contains('products')) {
+                db.createObjectStore('products', { keyPath: 'key' });
+            }
+        };
+        request.onsuccess = function(event) {
+            resolve(event.target.result);
+        };
+        request.onerror = function() {
+            resolve(null);
+        };
+    });
+    return pos_idb_promise;
+}
+
+function pos_idb_get(key) {
+    return pos_idb_open().then(function(db) {
+        if (!db) {
+            return pos_localstorage_get(key);
+        }
+        return new Promise(function(resolve) {
+            var tx = db.transaction(['products'], 'readonly');
+            var store = tx.objectStore('products');
+            var req = store.get(key);
+            req.onsuccess = function() {
+                resolve(req.result || null);
+            };
+            req.onerror = function() {
+                resolve(pos_localstorage_get(key));
+            };
+        });
+    });
+}
+
+function pos_idb_set(key, data) {
+    return pos_idb_open().then(function(db) {
+        if (!db) {
+            pos_localstorage_set(key, data);
+            return;
+        }
+        var tx = db.transaction(['products'], 'readwrite');
+        var store = tx.objectStore('products');
+        store.put({ key: key, updated_at: Date.now(), items: data });
+    });
+}
+
+function pos_localstorage_get(key) {
+    try {
+        var raw = localStorage.getItem(key);
+        if (!raw) {
+            return null;
+        }
+        return JSON.parse(raw);
+    } catch (e) {
+        return null;
+    }
+}
+
+function pos_localstorage_set(key, data) {
+    try {
+        localStorage.setItem(key, JSON.stringify({ updated_at: Date.now(), items: data }));
+    } catch (e) {
+        // ignore quota errors
+    }
+}
+
+function pos_get_search_fields() {
+    var search_fields = [];
+    $('.search_fields:checked').each(function(i) {
+        search_fields[i] = $(this).val();
+    });
+    if (search_fields.indexOf('sku') !== -1 && search_fields.indexOf('sub_sku') === -1) {
+        search_fields.push('sub_sku');
+    }
+    return search_fields;
+}
+
+function pos_local_search(term, search_fields) {
+    if (!pos_local_index.loaded || !pos_local_index.items.length) {
+        return null;
+    }
+    var t = (term || '').toString().trim().toLowerCase();
+    if (!t) {
+        return [];
+    }
+    if (pos_local_index.exact_map[t]) {
+        return [pos_local_index.exact_map[t]];
+    }
+    var results_exact = [];
+    var results_partial = [];
+    var include_name = search_fields.indexOf('name') !== -1;
+    var include_sku = search_fields.indexOf('sku') !== -1 || search_fields.indexOf('sub_sku') !== -1;
+    var include_lot = search_fields.indexOf('lot') !== -1;
+
+    for (var i = 0; i < pos_local_index.items.length; i++) {
+        var item = pos_local_index.items[i];
+        var match = false;
+        var exact = false;
+        if (include_name) {
+            if (item.__lc_name === t || item.__lc_variation === t) {
+                exact = true;
+                match = true;
+            } else if (item.__lc_name.indexOf(t) !== -1 || item.__lc_variation.indexOf(t) !== -1) {
+                match = true;
+            }
+        }
+        if (!match && include_sku) {
+            if (item.__lc_sub_sku === t || item.__lc_sku === t) {
+                exact = true;
+                match = true;
+            } else if (item.__lc_sub_sku.indexOf(t) !== -1 || item.__lc_sku.indexOf(t) !== -1) {
+                match = true;
+            }
+        }
+        if (!match && include_lot) {
+            if (item.__lc_lot === t) {
+                exact = true;
+                match = true;
+            } else if (item.__lc_lot.indexOf(t) !== -1) {
+                match = true;
+            }
+        }
+        if (match) {
+            if (exact) {
+                results_exact.push(item);
+            } else {
+                results_partial.push(item);
+            }
+        }
+    }
+    var sorter = function(a, b) {
+        var aq = a.qty_available || 0;
+        var bq = b.qty_available || 0;
+        return bq - aq;
+    };
+    results_exact.sort(sorter);
+    results_partial.sort(sorter);
+    return results_exact.concat(results_partial).slice(0, pos_local_index_max_results);
+}
+
+function pos_load_local_index(force_refresh) {
+    var key = pos_get_index_key();
+    if (!force_refresh && pos_local_index.loaded && pos_local_index.key === key) {
+        return;
+    }
+    pos_local_index.key = key;
+    pos_local_index.loading = true;
+
+    pos_idb_get(key).then(function(cached) {
+        var now = Date.now();
+        if (cached && cached.items && cached.items.length) {
+            pos_prepare_index(cached.items);
+            pos_local_index.loaded = true;
+            pos_local_index.last_updated = cached.updated_at || 0;
+        }
+        var is_stale = !cached || !cached.updated_at || (now - cached.updated_at) > pos_local_index_ttl_ms;
+        if (!force_refresh && !is_stale) {
+            pos_local_index.loading = false;
+            return;
+        }
+        if (!navigator.onLine) {
+            pos_local_index.loading = false;
+            return;
+        }
+        var price_group = pos_get_price_group();
+        var search_fields = pos_get_search_fields();
+        $.getJSON('/products/list', {
+            location_id: $('input#location_id').val(),
+            price_group: price_group,
+            not_for_selling: 0,
+            term: '',
+            search_fields: search_fields,
+            pos_index: 1
+        }).done(function(data) {
+            if (data && data.length) {
+                pos_prepare_index(data);
+                pos_local_index.loaded = true;
+                pos_local_index.last_updated = Date.now();
+                pos_idb_set(key, data);
+            }
+        }).always(function() {
+            pos_local_index.loading = false;
+        });
+    });
+}
 $(document).ready(function() {
     customer_set = false;
     //Prevent enter key function except texarea
@@ -64,6 +306,9 @@ $(document).ready(function() {
         if ($('#types_of_service_id').length && $('#types_of_service_id').val()) {
             $('#types_of_service_id').change();
         }
+        setTimeout(function() {
+            pos_load_local_index(true);
+        }, 100);
     });
 
     //get customer
@@ -161,17 +406,23 @@ $(document).ready(function() {
         //Add Product
         $('#search_product')
             .autocomplete({
-                delay: 1000,
+                delay: 200,
                 source: function(request, response) {
-                    var price_group = '';
-                    var search_fields = [];
-                    $('.search_fields:checked').each(function(i){
-                      search_fields[i] = $(this).val();
-                    });
-
-                    if ($('#price_group').length > 0) {
-                        price_group = $('#price_group').val();
+                    var price_group = pos_get_price_group();
+                    var search_fields = pos_get_search_fields();
+                    var local_results = pos_local_search(request.term, search_fields);
+                    if (local_results && local_results.length) {
+                        response(local_results);
+                        return;
                     }
+                    if (!pos_local_index.loaded && !pos_local_index.loading) {
+                        pos_load_local_index(false);
+                    }
+                    if (pos_local_index.loaded && !navigator.onLine) {
+                        response([]);
+                        return;
+                    }
+
                     $.getJSON(
                         '/products/list',
                         {
@@ -302,6 +553,14 @@ $(document).ready(function() {
                     .appendTo(ul);
             }
         };
+        setTimeout(function() {
+            pos_load_local_index(false);
+        }, 150);
+        setInterval(function() {
+            if (navigator.onLine && !pos_local_index.loading) {
+                pos_load_local_index(true);
+            }
+        }, pos_local_index_ttl_ms);
     }
 
     //Update line total and check for quantity not greater than max quantity
@@ -614,16 +873,131 @@ $(document).ready(function() {
         $('#modal_payment').modal('show');
     });
 
-    $('#modal_payment').one('shown.bs.modal', function() {
-        $('#modal_payment')
-            .find('input')
-            .filter(':visible:first')
-            .focus()
-            .select();
+    $('#modal_payment').on('shown.bs.modal', function() {
+        pos_payment_enter_step = 0;
+        focus_payment_amount_field();
         if ($('form#edit_pos_sell_form').length == 0) {
             $(this).find('#method_0').change();
         }
     });
+
+    $('#modal_payment').on('hidden.bs.modal', function() {
+        pos_payment_enter_step = 0;
+    });
+
+    function focus_payment_amount_field() {
+        var amount_input = $('#modal_payment').find('input.payment-amount:visible:first');
+        if (amount_input.length) {
+            amount_input.focus().select();
+        }
+    }
+    function is_swal_open() {
+        return document.querySelector('.swal-overlay--show-modal') ||
+            document.querySelector('.swal-modal') ||
+            document.querySelector('.sweet-alert') ||
+            document.querySelector('.swal2-popup');
+    }
+    function get_swal_confirm_button() {
+        return document.querySelector('.swal-overlay--show-modal .swal-button--confirm') ||
+            document.querySelector('.swal-modal .swal-button--confirm') ||
+            document.querySelector('.sweet-alert .confirm') ||
+            document.querySelector('.swal2-confirm');
+    }
+    function trigger_swal_confirm() {
+        var confirmBtn = get_swal_confirm_button();
+        if (confirmBtn) {
+            confirmBtn.focus();
+            confirmBtn.click();
+            return true;
+        }
+        return false;
+    }
+    function focus_swal_confirm(attempts) {
+        var tries = attempts || 12;
+        var confirmBtn = get_swal_confirm_button();
+        if (confirmBtn) {
+            confirmBtn.focus();
+            return;
+        }
+        if (tries > 0) {
+            setTimeout(function() {
+                focus_swal_confirm(tries - 1);
+            }, 50);
+        }
+    }
+
+    $('#modal_payment').on('keydown', function(e) {
+        if (e.which !== 13) {
+            return;
+        }
+        var $target = $(e.target);
+        if ($target.is('textarea')) {
+            return;
+        }
+        if ($target.hasClass('select2-search__field') || $target.closest('.select2-container').length) {
+            return;
+        }
+        if ($target.is('#pos-save') || $target.closest('#pos-save').length) {
+            return;
+        }
+        if ($target.hasClass('payment-amount')) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            $target.change();
+            calculate_balance_due();
+            $target.blur();
+            var balance_span = $('#modal_payment').find('span.balance_due');
+            if (balance_span.length) {
+                balance_span.attr('tabindex', '-1').focus();
+            }
+            pos_payment_enter_step = 1;
+            return;
+        }
+        if (pos_payment_enter_step === 1) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            pos_payment_confirm_open = false;
+            pos_payment_confirm_armed = false;
+            swal({
+                title: LANG.sure,
+                icon: 'warning',
+                buttons: true,
+                dangerMode: false,
+                className: 'pos-confirm-swal',
+            }).then(function(willPay) {
+                pos_payment_confirm_open = false;
+                pos_payment_confirm_armed = false;
+                if (willPay) {
+                    $('#pos-save').trigger('click');
+                } else {
+                    pos_payment_enter_step = 0;
+                    focus_payment_amount_field();
+                }
+            });
+            setTimeout(function() {
+                pos_payment_confirm_open = true;
+                pos_payment_confirm_armed = true;
+                focus_swal_confirm(10);
+            }, 200);
+            return;
+        }
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        focus_payment_amount_field();
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (!pos_payment_confirm_open || !pos_payment_confirm_armed || e.which !== 13) {
+            return;
+        }
+        if (!is_swal_open()) {
+            return;
+        }
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        pos_payment_confirm_armed = false;
+        trigger_swal_confirm();
+    }, true);
 
     //Finalize without showing payment options
     $('button.pos-express-finalize').click(function() {
@@ -1332,6 +1706,26 @@ $(document).ready(function() {
     //Press enter on search product to jump into last quantty and vice-versa
     $('#search_product').keydown(function(e) {
         var key = e.which;
+        if (key == 13) {
+            var has_rows = $('#pos_table tbody tr').length > 0;
+            var input_val = $(this).val();
+            if (has_rows && (!input_val || input_val.trim() === '')) {
+                e.preventDefault();
+                $('#pos_table tbody tr:last')
+                    .find('input.pos_quantity')
+                    .focus()
+                    .select();
+                return;
+            }
+        }
+        if (key == 32) {
+            var input_val_space = $(this).val();
+            if (!input_val_space || input_val_space.trim() === '') {
+                e.preventDefault();
+                $('#pos-finalize').first().trigger('click');
+                return;
+            }
+        }
         if (key == 9) {
             // the tab key code
             e.preventDefault();
@@ -1343,12 +1737,23 @@ $(document).ready(function() {
             }
         }
     });
-    $('#pos_table').on('keypress', 'input.pos_quantity', function(e) {
+    $('#pos_table').on('keydown', 'input.pos_quantity', function(e) {
         var key = e.which;
         if (key == 13) {
             // the enter key code
             if (!$('#__is_mobile').length) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                $(this).change();
                 $('#search_product').focus();
+            }
+        }
+        if (key == 32) {
+            if (!$('#__is_mobile').length) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                $(this).change();
+                $('#pos-finalize').first().trigger('click');
             }
         }
     });
@@ -1365,6 +1770,9 @@ $(document).ready(function() {
 
     $('select#price_group').change(function() {
         $('input#hidden_price_group').val($(this).val());
+        setTimeout(function() {
+            pos_load_local_index(true);
+        }, 50);
     });
 
     //Quick add product

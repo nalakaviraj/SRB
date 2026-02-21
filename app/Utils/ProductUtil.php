@@ -1716,6 +1716,7 @@ class ProductUtil extends Util
         $query->select(
                 'products.id as product_id',
                 'products.name',
+                'products.sku',
                 'products.type',
                 'products.enable_stock',
                 'variations.id as variation_id',
@@ -1742,6 +1743,7 @@ class ProductUtil extends Util
         $data->transform(function ($item) {
             $item->name = e($item->name);
             $item->variation = e($item->variation);
+            $item->sku = e($item->sku);
             $item->sub_sku = e($item->sub_sku);
             return $item;
         });
