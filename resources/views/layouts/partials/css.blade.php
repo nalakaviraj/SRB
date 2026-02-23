@@ -82,6 +82,8 @@
 			--pos-focus-ring: #1e6cff;
 			--pos-focus-glow: rgba(30, 108, 255, 0.35);
 			--pos-focus-bg: #fff8d6;
+			--pos-row-active: rgba(30, 108, 255, 0.15);
+			--pos-row-flash: #fff1b3;
 		}
 		body.pos-layout :focus {
 			outline: 3px solid var(--pos-focus-ring) !important;
@@ -105,6 +107,29 @@
 		body.pos-layout .form-group:focus-within {
 			box-shadow: 0 0 0 3px var(--pos-focus-glow);
 			border-radius: 6px;
+		}
+		body.pos-layout #pos_table tbody tr.pos-active-row td {
+			background-color: var(--pos-row-active);
+		}
+		body.pos-layout #pos_table tbody tr.pos-last-added td {
+			background-color: var(--pos-row-flash);
+			transition: background-color 0.4s ease;
+		}
+		body.pos-layout #search_product {
+			font-size: 30px;
+			line-height: 1.8;
+			padding: 15px 15px;
+			height: 60px;
+		}
+		body.pos-layout #modal_payment .balance_due {
+			display: inline-block;
+			font-size: 28px;
+			font-weight: 800;
+			color: #b00020;
+			background: #fff3cd;
+			padding: 6px 12px;
+			border-radius: 6px;
+			border: 2px solid #f0ad4e;
 		}
 	</style>
 @endif

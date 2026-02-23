@@ -16,6 +16,62 @@ var pos_local_index_ttl_ms = 20 * 60 * 1000;
 var pos_local_index_max_results = 30;
 var pos_idb_promise = null;
 
+function pos_focus_search(select_text) {
+    var $search = $('input#search_product');
+    if (!$search.length || $search.is(':disabled')) {
+        return;
+    }
+    $search.focus();
+    if (select_text) {
+        $search.select();
+    }
+}
+
+function pos_is_modal_open() {
+    return $('.modal.in:visible').length > 0 || $('.modal.show:visible').length > 0;
+}
+
+function pos_mark_active_row($row, flash) {
+    if (!$row || !$row.length) {
+        return;
+    }
+    $('#pos_table tbody tr').removeClass('pos-active-row');
+    $row.addClass('pos-active-row');
+    if (flash) {
+        $row.addClass('pos-last-added');
+        setTimeout(function() {
+            $row.removeClass('pos-last-added');
+        }, 1500);
+    }
+}
+
+function pos_get_active_row() {
+    var $active = $('#pos_table tbody tr.pos-active-row:last');
+    if ($active.length) {
+        return $active;
+    }
+    return $('#pos_table tbody tr:last');
+}
+
+function pos_adjust_quantity(delta) {
+    var $row = pos_get_active_row();
+    if (!$row.length) {
+        return;
+    }
+    var $qty = $row.find('input.pos_quantity');
+    if (!$qty.length) {
+        return;
+    }
+    var qty = __read_number($qty);
+    var new_qty = qty + delta;
+    if (new_qty < 1) {
+        new_qty = 1;
+    }
+    __write_number($qty, new_qty);
+    $qty.trigger('change');
+    pos_mark_active_row($row, true);
+}
+
 function pos_get_price_group() {
     if ($('#price_group').length > 0) {
         return $('#price_group').val() || '';
@@ -265,6 +321,77 @@ $(document).ready(function() {
         initialize_printer();
     }
 
+    // Keep cashier flow fast: focus search when idle
+    setTimeout(function() {
+        pos_focus_search(true);
+    }, 300);
+    $(document).on('hidden.bs.modal', '.modal', function() {
+        pos_focus_search(true);
+    });
+
+    // Track active row for quick quantity edits
+    $('#pos_table').on('click', 'tbody tr', function() {
+        pos_mark_active_row($(this), false);
+    });
+    $('#pos_table').on('focus', 'input.pos_quantity', function() {
+        pos_mark_active_row($(this).closest('tr'), false);
+    });
+
+    // Quick quantity adjust from keyboard
+    $(document).on('keydown', function(e) {
+        if (pos_is_modal_open()) {
+            return;
+        }
+        var $target = $(e.target);
+        if ($target.is('input, textarea, select') || $target.hasClass('select2-search__field')) {
+            // Allow +/- from search field when empty
+            if (!$target.is('#search_product')) {
+                return;
+            }
+            if ($target.val() && $target.val().trim() !== '') {
+                return;
+            }
+        }
+
+        var key = e.which;
+        if (key === 187 || key === 107) { // + / numpad +
+            e.preventDefault();
+            pos_adjust_quantity(1);
+            pos_focus_search(true);
+        } else if (key === 189 || key === 109) { // - / numpad -
+            e.preventDefault();
+            pos_adjust_quantity(-1);
+            pos_focus_search(true);
+        } else if (!$target.is('input, textarea, select')) {
+            // If user starts typing anywhere, route to search
+            if ((key >= 48 && key <= 90) || (key >= 96 && key <= 105)) {
+                pos_focus_search(false);
+            }
+        }
+    });
+
+    // If cart is empty, pressing Enter should always return focus to search
+    $(document).on('keydown', function(e) {
+        if (e.which !== 13) {
+            return;
+        }
+        if (pos_is_modal_open()) {
+            return;
+        }
+        if ($('#pos_table tbody tr').length > 0) {
+            return;
+        }
+        // Don't hijack selection in open dropdowns/autocomplete
+        if ($('.select2-container--open').length) {
+            return;
+        }
+        if ($(e.target).is('#search_product') && $('.ui-autocomplete:visible').length) {
+            return;
+        }
+        e.preventDefault();
+        pos_focus_search(true);
+    });
+
     $('select#select_location_id').change(function() {
         reset_pos_form();
 
@@ -492,7 +619,8 @@ $(document).ready(function() {
                         var purchase_line_id = ui.item.purchase_line_id && searched_term == ui.item.lot_number ? ui.item.purchase_line_id : null;
                         pos_product_row(ui.item.variation_id, purchase_line_id);
                     } else {
-                        alert(LANG.out_of_stock);
+                        toastr.error(LANG.out_of_stock);
+                        pos_focus_search(true);
                     }
                 },
             })
@@ -2109,6 +2237,7 @@ function pos_product_row(variation_id = null, purchase_line_id = null, weighing_
                     qty_element.change();
 
                     round_row_to_iraqi_dinnar($(this));
+                    pos_mark_active_row($(this), true);
 
                     if (!$('#__is_mobile').length) {
                         $('input#search_product')
@@ -2221,6 +2350,7 @@ function pos_product_row(variation_id = null, purchase_line_id = null, weighing_
 
                     round_row_to_iraqi_dinnar(this_row);
                     __currency_convert_recursively(this_row);
+                    pos_mark_active_row(this_row, true);
 
                     if (!$('#__is_mobile').length) {
                         $('input#search_product')
