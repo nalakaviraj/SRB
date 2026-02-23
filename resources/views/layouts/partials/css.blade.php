@@ -1,3 +1,7 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;600;700&family=Fraunces:wght@600;700&display=swap" rel="stylesheet">
+
 <link href="{{ asset('css/tailwind/app.css?v='.$asset_v) }}" rel="stylesheet">
 
 <link rel="stylesheet" href="{{ asset('css/vendor.css?v='.$asset_v) }}">
@@ -10,6 +14,7 @@
 
 <!-- app css -->
 <link rel="stylesheet" href="{{ asset('css/app.css?v='.$asset_v) }}">
+<link rel="stylesheet" href="{{ asset('css/ui-refresh.css?v='.$asset_v) }}">
 
 @if(isset($pos_layout) && $pos_layout)
 	<style type="text/css">
