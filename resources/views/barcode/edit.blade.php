@@ -33,6 +33,17 @@
               'placeholder' => __('barcode.setting_description'), 'rows' => 3]); !!}
           </div>
         </div>
+        <div class="col-sm-6">
+          <div class="form-group">
+            {!! Form::label('measurement_unit', __('product.unit') . ':*') !!}
+            <div class="input-group">
+              <span class="input-group-addon">
+                <i class="fa fa-balance-scale" aria-hidden="true"></i>
+              </span>
+              {!! Form::select('measurement_unit', ['in' => __('barcode.in_in'), 'mm' => 'mm'], $barcode->measurement_unit ?? 'in', ['class' => 'form-control', 'required']); !!}
+            </div>
+          </div>
+        </div>
         <div class="col-sm-12">
           <div class="form-group">
             <div class="checkbox">
@@ -41,9 +52,17 @@
               </div>
           </div>
         </div>
+        <div class="col-sm-12">
+          <div class="form-group">
+            <div class="checkbox">
+              <label>
+                {!! Form::checkbox('rotate_labels', 1, $barcode->rotate_labels ?? 0); !!} Rotate labels 90 deg</label>
+              </div>
+          </div>
+        </div>
         <div class="col-sm-6">
           <div class="form-group">
-            {!! Form::label('top_margin', __('barcode.top_margin') . ' ('. __('barcode.in_in') . '):*') !!}
+            {!! Form::label('top_margin', __('barcode.top_margin') . ':*') !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <span class="glyphicon glyphicon-arrow-up" aria-hidden="true"></span>
@@ -55,7 +74,7 @@
         </div>
         <div class="col-sm-6">
           <div class="form-group">
-            {!! Form::label('left_margin', __('barcode.left_margin') . ' ('. __('barcode.in_in') . '):*') !!}
+            {!! Form::label('left_margin', __('barcode.left_margin') . ':*') !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <span class="glyphicon glyphicon-arrow-left" aria-hidden="true"></span>
@@ -68,7 +87,7 @@
         <div class="clearfix"></div>
         <div class="col-sm-6">
           <div class="form-group">
-            {!! Form::label('width', __('barcode.width') . ' ('. __('barcode.in_in') . '):*') !!}
+            {!! Form::label('width', __('barcode.width') . ':*') !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <i class="fa fa-text-width" aria-hidden="true"></i>
@@ -80,7 +99,7 @@
         </div>
         <div class="col-sm-6">
           <div class="form-group">
-            {!! Form::label('height', __('barcode.height') . ' ('. __('barcode.in_in') . '):*') !!}
+            {!! Form::label('height', __('barcode.height') . ':*') !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <i class="fa fa-text-height" aria-hidden="true"></i>
@@ -93,7 +112,7 @@
         <div class="clearfix"></div>
         <div class="col-sm-6">
           <div class="form-group">
-            {!! Form::label('paper_width', __('barcode.paper_width') . ' ('. __('barcode.in_in') . '):*') !!}
+            {!! Form::label('paper_width', __('barcode.paper_width') . ':*') !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <i class="fa fa-text-width" aria-hidden="true"></i>
@@ -105,7 +124,7 @@
         </div>
         <div class="col-sm-6 paper_height_div @if( $barcode->is_continuous ) {{ 'hide' }} @endif">
           <div class="form-group">
-            {!! Form::label('paper_height', __('barcode.paper_height') . ' ('. __('barcode.in_in') . '):*') !!}
+            {!! Form::label('paper_height', __('barcode.paper_height') . ':*') !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <i class="fa fa-text-height" aria-hidden="true"></i>
@@ -130,7 +149,7 @@
         <div class="clearfix"></div>
         <div class="col-sm-6">
           <div class="form-group">
-            {!! Form::label('row_distance', __('barcode.row_distance') . ' ('. __('barcode.in_in') . '):*') !!}
+            {!! Form::label('row_distance', __('barcode.row_distance') . ':*') !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <span class="glyphicon glyphicon-resize-vertical" aria-hidden="true"></span>
@@ -142,7 +161,7 @@
         </div>
         <div class="col-sm-6">
           <div class="form-group">
-            {!! Form::label('col_distance', __('barcode.col_distance') . ' ('. __('barcode.in_in') . '):*') !!}
+            {!! Form::label('col_distance', __('barcode.col_distance') . ':*') !!}
             <div class="input-group">
               <span class="input-group-addon">
                 <span class="glyphicon glyphicon-resize-horizontal" aria-hidden="true"></span>

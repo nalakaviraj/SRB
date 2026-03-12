@@ -3,7 +3,7 @@
 @section('title', __('sale.pos_sale'))
 
 @section('content')
-    <section class="content no-print">
+    <section class="content no-print pos-v2">
         <input type="hidden" id="amount_rounding_method" value="{{ $pos_settings['amount_rounding_method'] ?? '' }}">
         @if (!empty($pos_settings['allow_overselling']))
             <input type="hidden" id="is_overselling_allowed">
@@ -20,53 +20,74 @@
             'method' => 'post',
             'id' => 'add_pos_sell_form',
         ]) !!}
-        <div class="row mb-12">
-            <div class="col-md-12 tw-pt-0 tw-mb-14">
-                <div class="row tw-flex lg:tw-flex-row md:tw-flex-col sm:tw-flex-col tw-flex-col tw-items-start md:tw-gap-4">
-                    {{-- <div class="@if (empty($pos_settings['hide_product_suggestion'])) col-md-7 @else col-md-10 col-md-offset-1 @endif no-padding pr-12"> --}}
-                    <div class="tw-px-3 tw-w-full  lg:tw-px-0 lg:tw-pr-0 @if(empty($pos_settings['hide_product_suggestion'])) lg:tw-w-[60%]  @else lg:tw-w-[100%] @endif">
-
-                        <div class="tw-shadow-[rgba(17,_17,_26,_0.1)_0px_0px_16px] tw-rounded-2xl tw-bg-white tw-mb-2 md:tw-mb-8 tw-p-2">
-
-                            {{-- <div class="box box-solid mb-12 @if (!isMobile()) mb-40 @endif"> --}}
-                                <div class="box-body pb-0">
-                                    {!! Form::hidden('location_id', $default_location->id ?? null, [
-                                        'id' => 'location_id',
-                                        'data-receipt_printer_type' => !empty($default_location->receipt_printer_type)
-                                            ? $default_location->receipt_printer_type
-                                            : 'browser',
-                                        'data-default_payment_accounts' => $default_location->default_payment_accounts ?? '',
-                                    ]) !!}
-                                    <!-- sub_type -->
-                                    {!! Form::hidden('sub_type', isset($sub_type) ? $sub_type : null) !!}
-                                    <input type="hidden" id="item_addition_method"
-                                        value="{{ $business_details->item_addition_method }}">
-                                    @include('sale_pos.partials.pos_form')
-
-                                    @include('sale_pos.partials.pos_form_totals')
-
-                                    @include('sale_pos.partials.payment_modal')
-
-                                    @if (empty($pos_settings['disable_suspend']))
-                                        @include('sale_pos.partials.suspend_note_modal')
-                                    @endif
-
-                                    @if (empty($pos_settings['disable_recurring_invoice']))
-                                        @include('sale_pos.partials.recurring_invoice_modal')
-                                    @endif
-                                </div>
-                            {{-- </div> --}}
-                        </div>
+        <div class="pos-v2__shell">
+            <div class="pos-v2__hero">
+                <div class="pos-v2__title">
+                    <h1>@lang('sale.pos_sale')</h1>
+                    <div class="pos-v2__subtitle">Fast, friendly checkout.</div>
+                </div>
+                <div class="pos-v2__meta">
+                    <div class="pos-v2__chip">
+                        <span>@lang('sale.location'):</span>
+                        <strong>{{ $default_location->name ?? '-' }}</strong>
                     </div>
+                    <div class="pos-v2__chip">
+                        <span>Now:</span>
+                        <strong>{{ @format_datetime('now') }}</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pos-v2__layout">
+                <main class="pos-v2__main">
+                    <div class="pos-v2__card">
+                        {!! Form::hidden('location_id', $default_location->id ?? null, [
+                            'id' => 'location_id',
+                            'data-receipt_printer_type' => !empty($default_location->receipt_printer_type)
+                                ? $default_location->receipt_printer_type
+                                : 'browser',
+                            'data-default_payment_accounts' => $default_location->default_payment_accounts ?? '',
+                        ]) !!}
+                        <!-- sub_type -->
+                        {!! Form::hidden('sub_type', isset($sub_type) ? $sub_type : null) !!}
+                        <input type="hidden" id="item_addition_method"
+                            value="{{ $business_details->item_addition_method }}">
+
+                        @include('sale_pos.partials.pos_form')
+                    </div>
+
+                    <div class="pos-v2__card">
+                        @include('sale_pos.partials.pos_form_totals')
+                    </div>
+
+                    @include('sale_pos.partials.payment_modal')
+
+                    @if (empty($pos_settings['disable_suspend']))
+                        @include('sale_pos.partials.suspend_note_modal')
+                    @endif
+
+                    @if (empty($pos_settings['disable_recurring_invoice']))
+                        @include('sale_pos.partials.recurring_invoice_modal')
+                    @endif
+                </main>
+
+                <aside class="pos-v2__side">
                     @if (empty($pos_settings['hide_product_suggestion']) && !isMobile())
-                        <div class="md:tw-no-padding tw-w-full lg:tw-w-[40%] tw-px-5">
+                        <div class="pos-v2__card">
+                            <div class="pos-v2__shelf-head">
+                                <h3 class="pos-v2__shelf-title">Products</h3>
+                                <span class="pos-v2__shelf-sub">Tap to add</span>
+                            </div>
                             @include('sale_pos.partials.pos_sidebar')
                         </div>
                     @endif
-                </div>
+                </aside>
+            </div>
+
+            <div class="pos-v2__dock">
+                @include('sale_pos.partials.pos_form_actions')
             </div>
         </div>
-        @include('sale_pos.partials.pos_form_actions')
         {!! Form::close() !!}
     </section>
 
@@ -99,6 +120,7 @@
 
 @stop
 @section('css')
+    <link rel="stylesheet" href="{{ asset('css/pos_v2.css?v=' . $asset_v) }}">
     <!-- include module css -->
     @if (!empty($pos_module_data))
         @foreach ($pos_module_data as $key => $value)

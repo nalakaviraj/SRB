@@ -69,10 +69,91 @@ $(document).ready(function() {
         }
     });
 
+    $('button#labels_qz_print').click(function() {
+        if ($('form#preview_setting_form table#product_table tbody tr').length > 0) {
+            if (typeof window.qzHelper === 'undefined') {
+                queuePrintStation();
+                return;
+            }
+
+            window.qzHelper.printLabelsFromForm('#preview_setting_form')
+                .then(function() {
+                    toastr.success('Label sent to printer.');
+                })
+                .catch(function(err) {
+                    console.error(err);
+                    queuePrintStation();
+                });
+        } else {
+            swal(LANG.label_no_product_error).then(value => {
+                $('#search_product_for_label').focus();
+            });
+        }
+    });
+
+    $('button#labels_qz_test_lines').click(function() {
+        if (typeof window.qzHelper === 'undefined') {
+            toastr.error('QZ Tray not loaded. Please install QZ Tray and refresh.');
+            return;
+        }
+
+        var barcodeSettingId = $('select[name="barcode_setting"]').val();
+        if (!barcodeSettingId) {
+            toastr.error('Select a barcode setting first.');
+            return;
+        }
+
+        window.qzHelper.printTsplTestLines(barcodeSettingId)
+            .then(function() {
+                toastr.success('TSPL test lines sent to printer.');
+            })
+            .catch(function(err) {
+                console.error(err);
+                var message = 'Failed to print TSPL test lines.';
+                if (err) {
+                    var detail = '';
+                    if (err.message) {
+                        detail = err.message;
+                    } else if (typeof err === 'string') {
+                        detail = err;
+                    } else if (err.error) {
+                        detail = err.error;
+                    } else {
+                        try {
+                            detail = JSON.stringify(err);
+                        } catch (e) {
+                            detail = String(err);
+                        }
+                    }
+                    if (detail) {
+                        message += ' ' + detail;
+                    }
+                }
+                toastr.error(message);
+            });
+    });
+
     $(document).on('click', 'button#print_label', function() {
         window.print();
     });
 });
+
+function queuePrintStation() {
+    $.ajax({
+        method: 'POST',
+        url: base_path + '/labels/queue-print',
+        dataType: 'json',
+        data: $('form#preview_setting_form').serialize()
+    }).done(function(result) {
+        if (result && result.success) {
+            toastr.success('Sent to print station.');
+        } else {
+            toastr.error('Failed to queue print job.');
+        }
+    }).fail(function() {
+        toastr.error('Failed to queue print job.');
+    });
+}
 
 function get_label_product_row(product_id, variation_id) {
     if (product_id) {

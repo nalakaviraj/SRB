@@ -583,6 +583,97 @@ class ProductController extends Controller
         return redirect('products')->with('status', $output);
     }
 
+    public function updatePos(Request $request, $id)
+    {
+        if (! auth()->user()->can('product.update')) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        if (! $request->ajax()) {
+            abort(404);
+        }
+
+        try {
+            $business_id = $request->session()->get('user.business_id');
+            $product = Product::where('business_id', $business_id)
+                ->with(['variations', 'unit'])
+                ->findOrFail($id);
+
+            if ($product->type !== 'single') {
+                return ['success' => false, 'msg' => __('messages.something_went_wrong')];
+            }
+
+            $product->name = $request->input('name');
+            $sku = $request->input('sku');
+            if (empty($sku)) {
+                $sku = $product->sku;
+            }
+            $product->sku = $sku;
+            $product->barcode_type = $request->input('barcode_type');
+            $product->enable_stock = ! empty($request->input('enable_stock')) ? 1 : 0;
+            $product->save();
+
+            $variation = $product->variations->first();
+            $cost = $this->productUtil->num_uf($request->input('single_dpp'));
+            $selling = $this->productUtil->num_uf($request->input('single_dsp'));
+            $margin = $this->productUtil->num_uf($request->input('profit_percent'));
+
+            $variation->sub_sku = $product->sku;
+            $variation->default_purchase_price = $cost;
+            $variation->dpp_inc_tax = $cost;
+            $variation->profit_percent = $margin;
+            $variation->default_sell_price = $selling;
+            $variation->sell_price_inc_tax = $selling;
+            $variation->save();
+
+            $current_qty = $request->input('current_quantity');
+            $location_id = $request->input('current_quantity_location');
+            if ($product->enable_stock == 1 && $current_qty !== null && $current_qty !== '' && ! empty($location_id)) {
+                $desired_qty = $this->productUtil->num_uf($current_qty);
+                if ($desired_qty < 0) {
+                    $desired_qty = 0;
+                }
+                $existing_qty = VariationLocationDetails::where('variation_id', $variation->id)
+                    ->where('product_id', $product->id)
+                    ->where('location_id', $location_id)
+                    ->value('qty_available');
+                $existing_qty = $existing_qty ?: 0;
+                $this->productUtil->updateProductQuantity($location_id, $product->id, $variation->id, $desired_qty, $existing_qty, null, false);
+            }
+
+            $qty_available = null;
+            $display_location_id = $request->input('pos_location_id') ?: $location_id;
+            if (! empty($display_location_id)) {
+                $qty_available = VariationLocationDetails::where('variation_id', $variation->id)
+                    ->where('product_id', $product->id)
+                    ->where('location_id', $display_location_id)
+                    ->value('qty_available');
+            }
+
+            return [
+                'success' => true,
+                'msg' => __('product.product_updated_success'),
+                'product' => [
+                    'product_id' => $product->id,
+                    'variation_id' => $variation->id,
+                    'name' => $product->name,
+                    'sku' => $product->sku,
+                    'sub_sku' => $variation->sub_sku,
+                    'type' => $product->type,
+                    'variation' => $variation->name,
+                    'enable_stock' => $product->enable_stock,
+                    'selling_price' => $variation->sell_price_inc_tax,
+                    'qty_available' => $qty_available,
+                    'unit' => optional($product->unit)->short_name,
+                    'product_image' => $product->image,
+                ],
+            ];
+        } catch (\Exception $e) {
+            \Log::emergency('File:'.$e->getFile().'Line:'.$e->getLine().'Message:'.$e->getMessage());
+            return ['success' => false, 'msg' => __('messages.something_went_wrong')];
+        }
+    }
+
     /**
      * Display the specified resource.
      *
@@ -661,6 +752,55 @@ class ProductController extends Controller
 
         return view('product.edit')
                 ->with(compact('categories', 'brands', 'units', 'sub_units', 'taxes', 'tax_attributes', 'barcode_types', 'product', 'sub_categories', 'default_profit_percent', 'business_locations', 'rack_details', 'selling_price_group_count', 'module_form_parts', 'product_types', 'common_settings', 'warranties', 'pos_module_data', 'alert_quantity'));
+    }
+
+    public function editPos($id)
+    {
+        if (! auth()->user()->can('product.update')) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        if (! request()->ajax()) {
+            abort(404);
+        }
+
+        $business_id = request()->session()->get('user.business_id');
+        $product = Product::where('business_id', $business_id)
+            ->with(['variations', 'product_locations'])
+            ->findOrFail($id);
+
+        $variation = $product->variations->first();
+        if (empty($variation)) {
+            abort(404);
+        }
+
+        $barcode_types = $this->barcode_types;
+        $locations = BusinessLocation::forDropdown($business_id);
+        $location_id = request()->get('location_id');
+        if (! empty($location_id)) {
+            $location_id = (int) $location_id;
+            if (! $product->product_locations->pluck('id')->contains($location_id)) {
+                $location_id = null;
+            }
+        }
+        if (empty($location_id)) {
+            $location_id = $product->product_locations->pluck('id')->first();
+        }
+        if (empty($location_id) && ! empty($locations)) {
+            $location_id = array_key_first($locations->toArray());
+        }
+
+        $current_quantity = 0;
+        if (! empty($location_id)) {
+            $current_quantity = VariationLocationDetails::where('variation_id', $variation->id)
+                ->where('product_id', $product->id)
+                ->where('location_id', $location_id)
+                ->value('qty_available');
+            $current_quantity = $current_quantity ?: 0;
+        }
+
+        return view('product.partials.pos_edit_modal')
+            ->with(compact('product', 'variation', 'barcode_types', 'locations', 'location_id', 'current_quantity'));
     }
 
     /**
@@ -814,6 +954,26 @@ class ProductController extends Controller
                 $variation->save();
 
                 Media::uploadMedia($product->business_id, $variation, $request, 'variation_images');
+
+                $current_qty_input = $request->input('current_quantity');
+                if ($product->enable_stock == 1 && $current_qty_input !== null && $current_qty_input !== '') {
+                    $location_id = $request->input('current_quantity_location');
+                    if (empty($location_id) && ! empty($product_locations)) {
+                        $location_id = $product_locations[0] ?? null;
+                    }
+                    if (! empty($location_id)) {
+                        $desired_qty = $this->productUtil->num_uf($current_qty_input);
+                        if ($desired_qty < 0) {
+                            $desired_qty = 0;
+                        }
+                        $existing_qty = VariationLocationDetails::where('variation_id', $variation->id)
+                            ->where('product_id', $product->id)
+                            ->where('location_id', $location_id)
+                            ->value('qty_available');
+                        $existing_qty = $existing_qty ?: 0;
+                        $this->productUtil->updateProductQuantity($location_id, $product->id, $variation->id, $desired_qty, $existing_qty, null, false);
+                    }
+                }
             } elseif ($product->type == 'variable') {
                 //Update existing variations
                 $input_variations_edit = $request->get('product_variation_edit');
@@ -1250,6 +1410,7 @@ class ProductController extends Controller
             $not_for_selling = request()->get('not_for_selling', null);
             $price_group_id = request()->input('price_group', '');
             $product_types = request()->get('product_types', []);
+            $include_pos_index_fields = request()->boolean('pos_index');
 
             $search_fields = request()->get('search_fields', ['name', 'sku']);
             if (in_array('sku', $search_fields)) {
@@ -1267,7 +1428,8 @@ class ProductController extends Controller
                     $product_types,
                     $search_fields,
                     $check_qty,
-                    'exact'
+                    'exact',
+                    $include_pos_index_fields
                 );
                 if ($exact_result->count() > 0) {
                     return json_encode($exact_result);
@@ -1282,7 +1444,9 @@ class ProductController extends Controller
                 $price_group_id,
                 $product_types,
                 $search_fields,
-                $check_qty
+                $check_qty,
+                'like',
+                $include_pos_index_fields
             );
 
             return json_encode($result);

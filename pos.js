@@ -18,6 +18,8 @@ var pos_local_index_max_results = 30;
 var pos_idb_promise = null;
 var pos_search_term = '';
 var pos_search_timeout = null;
+var pos_row_queue = [];
+var pos_row_request_in_flight = false;
 
 function pos_focus_search(select_text) {
     var $search = $('input#search_product');
@@ -1294,6 +1296,11 @@ $(document).ready(function() {
         //Check if product is present or not.
         if ($('table#pos_table tbody').find('.product_row').length <= 0) {
             toastr.warning(LANG.no_products_added);
+            return false;
+        }
+        if (pos_has_pending_rows()) {
+            var msg = (typeof LANG !== 'undefined' && LANG.processing) ? LANG.processing : 'Adding products, please wait';
+            toastr.warning(msg);
             return false;
         }
 
@@ -2665,196 +2672,265 @@ function get_recent_transactions(status, element_obj) {
     });
 }
 
+function pos_try_add_existing_row(variation_id, quantity) {
+    if (!variation_id) {
+        return false;
+    }
+    var qty_to_add = (typeof quantity === 'number' && quantity > 0) ? quantity : 1;
+    var is_added = false;
+    $('#pos_table tbody')
+        .find('tr')
+        .each(function() {
+            var row_v_id = $(this)
+                .find('.row_variation_id')
+                .val();
+            var enable_sr_no = $(this)
+                .find('.enable_sr_no')
+                .val();
+            var modifiers_exist = false;
+            if ($(this).find('input.modifiers_exist').length > 0) {
+                modifiers_exist = true;
+            }
+
+            if (
+                row_v_id == variation_id &&
+                enable_sr_no !== '1' &&
+                !modifiers_exist &&
+                !is_added
+            ) {
+                is_added = true;
+
+                //Increment product quantity
+                var qty_element = $(this).find('.pos_quantity');
+                var qty = __read_number(qty_element);
+                __write_number(qty_element, qty + qty_to_add);
+                qty_element.change();
+
+                round_row_to_iraqi_dinnar($(this));
+                pos_mark_active_row($(this), true);
+
+                if (!$('#__is_mobile').length) {
+                    $('input#search_product')
+                        .focus()
+                        .select();
+                }
+            }
+        });
+
+    return is_added;
+}
+
+function pos_enqueue_row(payload) {
+    pos_row_queue.push(payload);
+    pos_process_row_queue();
+}
+
+function pos_process_row_queue() {
+    if (pos_row_request_in_flight) {
+        return;
+    }
+    if (!pos_row_queue.length) {
+        return;
+    }
+    var payload = pos_row_queue.shift();
+
+    if (payload.item_addtn_method != 0 && payload.variation_id) {
+        if (pos_try_add_existing_row(payload.variation_id, payload.quantity)) {
+            setTimeout(pos_process_row_queue, 0);
+            return;
+        }
+    }
+
+    pos_row_request_in_flight = true;
+
+    var product_row = $('input#product_row_count').val();
+    var location_id = payload.location_id || $('input#location_id').val();
+
+    $.ajax({
+        method: 'GET',
+        url: '/sells/pos/get_product_row/' + payload.variation_id + '/' + location_id,
+        data: {
+            product_row: product_row,
+            customer_id: payload.customer_id,
+            is_direct_sell: payload.is_direct_sell,
+            is_serial_no: payload.is_serial_no,
+            price_group: payload.price_group,
+            purchase_line_id: payload.purchase_line_id,
+            weighing_scale_barcode: payload.weighing_scale_barcode,
+            quantity: payload.quantity,
+            is_sales_order: payload.is_sales_order,
+            disable_qty_alert: payload.disable_qty_alert,
+            is_draft: payload.is_draft
+        },
+        dataType: 'json',
+        success: function(result) {
+            if (result.success) {
+                $('table#pos_table tbody')
+                    .append(result.html_content)
+                    .find('input.pos_quantity');
+                //increment row count
+                $('input#product_row_count').val(parseInt(product_row) + 1);
+                var this_row = $('table#pos_table tbody')
+                    .find('tr')
+                    .last();
+                pos_each_row(this_row);
+
+                //For initial discount if present
+                var line_total = __read_number(this_row.find('input.pos_line_total'));
+                this_row.find('span.pos_line_total_text').text(line_total);
+
+                pos_total_row();
+
+                //Check if multipler is present then multiply it when a new row is added.
+                if(__getUnitMultiplier(this_row) > 1){
+                    this_row.find('select.sub_unit').trigger('change');
+                }
+
+                if (result.enable_sr_no == '1') {
+                    var new_row = $('table#pos_table tbody')
+                        .find('tr')
+                        .last();
+                    new_row.find('.row_edit_product_price_model').modal('show');
+                }
+
+                round_row_to_iraqi_dinnar(this_row);
+                __currency_convert_recursively(this_row);
+                pos_mark_active_row(this_row, true);
+
+                if (!$('#__is_mobile').length) {
+                    $('input#search_product')
+                        .focus()
+                        .select();
+                }
+
+                //Used in restaurant module
+                if (result.html_modifier) {
+                    $('table#pos_table tbody')
+                        .find('tr')
+                        .last()
+                        .find('td:first')
+                        .append(result.html_modifier);
+                }
+
+                //scroll bottom of items list
+                var $pos_div = $(".pos_product_div");
+                if ($pos_div.length) {
+                    if (pos_row_queue.length > 0) {
+                        $pos_div.scrollTop($pos_div.prop("scrollHeight"));
+                    } else {
+                        $pos_div.stop(true, true);
+                        $pos_div.animate({ scrollTop: $pos_div.prop("scrollHeight")}, 200);
+                    }
+                }
+            } else {
+                toastr.error(result.msg);
+                if (!$('#__is_mobile').length) {
+                    $('input#search_product')
+                        .focus()
+                        .select();
+                }
+            }
+        },
+        error: function() {
+            toastr.error(LANG.something_went_wrong);
+            if (!$('#__is_mobile').length) {
+                $('input#search_product')
+                    .focus()
+                    .select();
+            }
+        },
+        complete: function() {
+            pos_row_request_in_flight = false;
+            setTimeout(pos_process_row_queue, 0);
+        }
+    });
+}
+
+function pos_has_pending_rows() {
+    return pos_row_request_in_flight || pos_row_queue.length > 0;
+}
+
 //variation_id is null when weighing_scale_barcode is used.
 function pos_product_row(variation_id = null, purchase_line_id = null, weighing_scale_barcode = null, quantity = 1) {
 
     //Get item addition method
     var item_addtn_method = 0;
-    var add_via_ajax = true;
 
     if (variation_id != null && $('#item_addition_method').length) {
-        item_addtn_method = $('#item_addition_method').val();
+        item_addtn_method = parseInt($('#item_addition_method').val(), 10) || 0;
     }
 
-    if (item_addtn_method == 0) {
-        add_via_ajax = true;
-    } else {
-        var is_added = false;
-
-        //Search for variation id in each row of pos table
-        $('#pos_table tbody')
-            .find('tr')
-            .each(function() {
-                var row_v_id = $(this)
-                    .find('.row_variation_id')
-                    .val();
-                var enable_sr_no = $(this)
-                    .find('.enable_sr_no')
-                    .val();
-                var modifiers_exist = false;
-                if ($(this).find('input.modifiers_exist').length > 0) {
-                    modifiers_exist = true;
-                }
-
-                if (
-                    row_v_id == variation_id &&
-                    enable_sr_no !== '1' &&
-                    !modifiers_exist &&
-                    !is_added
-                ) {
-                    add_via_ajax = false;
-                    is_added = true;
-
-                    //Increment product quantity
-                    qty_element = $(this).find('.pos_quantity');
-                    var qty = __read_number(qty_element);
-                    __write_number(qty_element, qty + 1);
-                    qty_element.change();
-
-                    round_row_to_iraqi_dinnar($(this));
-                    pos_mark_active_row($(this), true);
-
-                    if (!$('#__is_mobile').length) {
-                        $('input#search_product')
-                            .focus()
-                            .select();
-                    }
-                }
-        });
+    if (item_addtn_method != 0) {
+        if (pos_try_add_existing_row(variation_id, quantity)) {
+            return;
+        }
     }
 
-    if (add_via_ajax) {
-        var product_row = $('input#product_row_count').val();
-        var location_id = $('input#location_id').val();
-        var customer_id = $('select#customer_id').val();
-        var is_direct_sell = false;
-        if (
-            $('input[name="is_direct_sale"]').length > 0 &&
-            $('input[name="is_direct_sale"]').val() == 1
-        ) {
-            is_direct_sell = true;
-        }
-
-        var disable_qty_alert = false;
-
-        if ($('#disable_qty_alert').length) {
-            disable_qty_alert = true;
-        }
-
-        var is_sales_order = $('#sale_type').length && $('#sale_type').val() == 'sales_order' ? true : false;
-
-        var price_group = '';
-        if ($('#price_group').length > 0) {
-            price_group = parseInt($('#price_group').val());
-        }
-
-        //If default price group present
-        if ($('#default_price_group').length > 0 && 
-            price_group === '') {
-            price_group = $('#default_price_group').val();
-        }
-
-        //If types of service selected give more priority
-        if ($('#types_of_service_price_group').length > 0 && 
-            $('#types_of_service_price_group').val()) {
-            price_group = $('#types_of_service_price_group').val();
-        }
-
-        var is_draft=false;
-        if($('#status') && ($('#status').val()=='quotation' || 
-        $('#status').val()=='draft')) {
-            is_draft=true;
-        }
-
-        var is_serial_no = false;
-
-        if (
-            $('input[name="is_serial_no"]').length > 0 &&
-            $('input[name="is_serial_no"]').val() == 1
-        ) {
-            is_serial_no = true;
-        }
-        
-        $.ajax({
-            method: 'GET',
-            url: '/sells/pos/get_product_row/' + variation_id + '/' + location_id,
-            async: false,
-            data: {
-                product_row: product_row,
-                customer_id: customer_id,
-                is_direct_sell: is_direct_sell,
-                is_serial_no: is_serial_no,
-                price_group: price_group,
-                purchase_line_id: purchase_line_id,
-                weighing_scale_barcode: weighing_scale_barcode,
-                quantity: quantity,
-                is_sales_order: is_sales_order,
-                disable_qty_alert: disable_qty_alert,
-                is_draft: is_draft
-            },
-            dataType: 'json',
-            success: function(result) {
-                if (result.success) {
-                    $('table#pos_table tbody')
-                        .append(result.html_content)
-                        .find('input.pos_quantity');
-                    //increment row count
-                    $('input#product_row_count').val(parseInt(product_row) + 1);
-                    var this_row = $('table#pos_table tbody')
-                        .find('tr')
-                        .last();
-                    pos_each_row(this_row);
-
-                    //For initial discount if present
-                    var line_total = __read_number(this_row.find('input.pos_line_total'));
-                    this_row.find('span.pos_line_total_text').text(line_total);
-
-                    pos_total_row();
-
-                    //Check if multipler is present then multiply it when a new row is added.
-                    if(__getUnitMultiplier(this_row) > 1){
-                        this_row.find('select.sub_unit').trigger('change');
-                    }
-
-                    if (result.enable_sr_no == '1') {
-                        var new_row = $('table#pos_table tbody')
-                            .find('tr')
-                            .last();
-                        new_row.find('.row_edit_product_price_model').modal('show');
-                    }
-
-                    round_row_to_iraqi_dinnar(this_row);
-                    __currency_convert_recursively(this_row);
-                    pos_mark_active_row(this_row, true);
-
-                    if (!$('#__is_mobile').length) {
-                        $('input#search_product')
-                            .focus()
-                            .select();
-                    }
-
-                    //Used in restaurant module
-                    if (result.html_modifier) {
-                        $('table#pos_table tbody')
-                            .find('tr')
-                            .last()
-                            .find('td:first')
-                            .append(result.html_modifier);
-                    }
-
-                    //scroll bottom of items list
-                    $(".pos_product_div").animate({ scrollTop: $('.pos_product_div').prop("scrollHeight")}, 1000);
-                } else {
-                    toastr.error(result.msg);
-                    if (!$('#__is_mobile').length) {
-                        $('input#search_product')
-                            .focus()
-                            .select();
-                    }
-                }
-            },
-        });
+    var location_id = $('input#location_id').val();
+    var customer_id = $('select#customer_id').val();
+    var is_direct_sell = false;
+    if (
+        $('input[name="is_direct_sale"]').length > 0 &&
+        $('input[name="is_direct_sale"]').val() == 1
+    ) {
+        is_direct_sell = true;
     }
+
+    var disable_qty_alert = false;
+
+    if ($('#disable_qty_alert').length) {
+        disable_qty_alert = true;
+    }
+
+    var is_sales_order = $('#sale_type').length && $('#sale_type').val() == 'sales_order' ? true : false;
+
+    var price_group = '';
+    if ($('#price_group').length > 0) {
+        price_group = parseInt($('#price_group').val());
+    }
+
+    //If default price group present
+    if ($('#default_price_group').length > 0 && 
+        price_group === '') {
+        price_group = $('#default_price_group').val();
+    }
+
+    //If types of service selected give more priority
+    if ($('#types_of_service_price_group').length > 0 && 
+        $('#types_of_service_price_group').val()) {
+        price_group = $('#types_of_service_price_group').val();
+    }
+
+    var is_draft=false;
+    if($('#status') && ($('#status').val()=='quotation' || 
+    $('#status').val()=='draft')) {
+        is_draft=true;
+    }
+
+    var is_serial_no = false;
+
+    if (
+        $('input[name="is_serial_no"]').length > 0 &&
+        $('input[name="is_serial_no"]').val() == 1
+    ) {
+        is_serial_no = true;
+    }
+
+    pos_enqueue_row({
+        variation_id: variation_id,
+        purchase_line_id: purchase_line_id,
+        weighing_scale_barcode: weighing_scale_barcode,
+        quantity: quantity,
+        location_id: location_id,
+        customer_id: customer_id,
+        is_direct_sell: is_direct_sell,
+        is_serial_no: is_serial_no,
+        price_group: price_group,
+        is_sales_order: is_sales_order,
+        disable_qty_alert: disable_qty_alert,
+        is_draft: is_draft,
+        item_addtn_method: item_addtn_method
+    });
 }
 
 //Update values for each row

@@ -1,3 +1,11 @@
+@php
+	$rotate_labels = !empty($barcode_details->rotate_labels);
+	$label_width = $barcode_details->width * 1;
+	$label_height = $barcode_details->height * 1;
+	$inner_width = $rotate_labels ? $label_height : $label_width;
+	$inner_height = $rotate_labels ? $label_width : $label_height;
+@endphp
+
 <table align="center" style="border-spacing: {{$barcode_details->col_distance * 1}}in {{$barcode_details->row_distance * 1}}in; overflow: hidden !important;">
 @foreach($page_products as $page_product)
 
@@ -7,7 +15,8 @@
 		<!-- <columns column-count="{{$barcode_details->stickers_in_one_row}}" column-gap="{{$barcode_details->col_distance*1}}"> -->
 	@endif
 		<td align="center" valign="center">
-			<div style="overflow: hidden !important;display: flex; flex-wrap: wrap;align-content: center;width: {{$barcode_details->width * 1}}in; height: {{$barcode_details->height * 1}}in; justify-content: center;">
+			<div style="overflow: hidden !important;position: relative;display: block;width: {{$label_width}}in; height: {{$label_height}}in;">
+				<div style="overflow: hidden !important;display: flex; flex-wrap: wrap;align-content: center;justify-content: center;width: {{$inner_width}}in; height: {{$inner_height}}in;@if($rotate_labels) position:absolute; top:50%; left:50%; transform: translate(-50%, -50%) rotate(90deg); transform-origin: center; @endif">
 				
 
 				<div>
@@ -93,6 +102,7 @@
 						{{$page_product->sub_sku}}
 					</span>
 				</div>
+				</div>
 			</div>
 		
 		</td>
@@ -107,6 +117,7 @@
 
 	td{
 		border: 1px dotted lightgray;
+		padding: 0;
 	}
 	@media print{
 		

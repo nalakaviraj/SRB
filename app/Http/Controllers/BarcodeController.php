@@ -83,7 +83,9 @@ class BarcodeController extends Controller
         try {
             $input = $request->only(['name', 'description', 'width', 'height', 'top_margin',
                 'left_margin', 'row_distance', 'col_distance',
-                'stickers_in_one_row', 'paper_width', ]);
+                'stickers_in_one_row', 'paper_width', 'measurement_unit', ]);
+            $input['measurement_unit'] = $input['measurement_unit'] ?? 'in';
+            $input['rotate_labels'] = ! empty($request->input('rotate_labels')) ? 1 : 0;
             $business_id = $request->session()->get('user.business_id');
             $input['business_id'] = $business_id;
 
@@ -163,7 +165,9 @@ class BarcodeController extends Controller
         try {
             $input = $request->only(['name', 'description', 'width', 'height', 'top_margin',
                 'left_margin', 'row_distance', 'col_distance',
-                'stickers_in_one_row', 'paper_width', ]);
+                'stickers_in_one_row', 'paper_width', 'measurement_unit', ]);
+            $input['measurement_unit'] = $input['measurement_unit'] ?? 'in';
+            $input['rotate_labels'] = ! empty($request->input('rotate_labels')) ? 1 : 0;
 
             if (! empty($request->input('is_continuous'))) {
                 $input['is_continuous'] = 1;

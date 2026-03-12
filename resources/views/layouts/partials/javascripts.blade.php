@@ -7,6 +7,10 @@
     APP.INVOICE_SCHEME_SEPARATOR = '{{ config('constants.invoice_scheme_separator') }}';
     //variable from app service provider
     APP.PUSHER_ENABLED = '{{ $__is_pusher_enabled }}';
+    APP.QZ_LABEL_PRINTER = '{{ config('constants.qz_label_printer_name') }}';
+    APP.QZ_RECEIPT_PRINTER = '{{ config('constants.qz_receipt_printer_name') }}';
+    APP.QZ_LABEL_GAP_MM = '{{ config('constants.qz_label_gap_mm') }}';
+    APP.QZ_LABEL_DPI = '{{ config('constants.qz_label_dpi') }}';
     @auth
     @php
         $user = Auth::user();
@@ -217,5 +221,3 @@
    
     });
 </script>
-
-

@@ -32,21 +32,6 @@
               </div>
             </div>
 
-            <div class="col-sm-4">
-              <div class="form-group">
-                {!! Form::label('sku', __('product.sku')  . ':*') !!} @show_tooltip(__('tooltip.sku'))
-                {!! Form::text('sku', $product->sku, ['class' => 'form-control',
-                'placeholder' => __('product.sku'), 'required']); !!}
-              </div>
-            </div>
-
-            <div class="col-sm-4">
-              <div class="form-group">
-                {!! Form::label('barcode_type', __('product.barcode_type') . ':*') !!}
-                  {!! Form::select('barcode_type', $barcode_types, $product->barcode_type, ['placeholder' => __('messages.please_select'), 'class' => 'form-control select2', 'required']); !!}
-              </div>
-            </div>
-
             <div class="clearfix"></div>
             
             <div class="col-sm-4">
@@ -58,6 +43,14 @@
                     <button type="button" @if(!auth()->user()->can('unit.create')) disabled @endif class="btn btn-default bg-white btn-flat quick_add_unit btn-modal" data-href="{{action([\App\Http\Controllers\UnitController::class, 'create'], ['quick_add' => true])}}" title="@lang('unit.add_unit')" data-container=".view_modal"><i class="fa fa-plus-circle text-primary fa-lg"></i></button>
                   </span>
                 </div>
+              </div>
+            </div>
+
+            <div class="col-sm-4">
+              <div class="form-group">
+                {!! Form::label('current_quantity', 'Current Quantity:') !!}
+                {!! Form::text('current_quantity', null, ['class' => 'form-control input_number', 'id' => 'current_quantity', 'placeholder' => 'Current Quantity']); !!}
+                {!! Form::hidden('current_quantity_location', null, ['id' => 'current_quantity_location']); !!}
               </div>
             </div>
 
@@ -84,7 +77,7 @@
                 </div>
             @endif
 
-            <div class="col-sm-4 @if(!session('business.enable_brand')) hide @endif">
+            <div class="col-sm-4 hide @if(!session('business.enable_brand')) hide @endif">
               <div class="form-group">
                 {!! Form::label('brand_id', __('product.brand') . ':') !!}
                 <div class="input-group">
@@ -95,44 +88,22 @@
                 </div>
               </div>
             </div>
-            <div class="col-sm-4 @if(!session('business.enable_category')) hide @endif">
+            <div class="col-sm-4 hide @if(!session('business.enable_category')) hide @endif">
               <div class="form-group">
                 {!! Form::label('category_id', __('product.category') . ':') !!}
                   {!! Form::select('category_id', $categories, $product->category_id, ['placeholder' => __('messages.please_select'), 'class' => 'form-control select2']); !!}
               </div>
             </div>
 
-            <div class="col-sm-4 @if(!(session('business.enable_category') && session('business.enable_sub_category'))) hide @endif">
+            <div class="col-sm-4 hide @if(!(session('business.enable_category') && session('business.enable_sub_category'))) hide @endif">
               <div class="form-group">
                 {!! Form::label('sub_category_id', __('product.sub_category')  . ':') !!}
                   {!! Form::select('sub_category_id', $sub_categories, $product->sub_category_id, ['placeholder' => __('messages.please_select'), 'class' => 'form-control select2']); !!}
               </div>
             </div>
 
-            <div class="col-sm-4">
-              <div class="form-group">
-                {!! Form::label('product_locations', __('business.business_locations') . ':') !!} @show_tooltip(__('lang_v1.product_location_help'))
-                  {!! Form::select('product_locations[]', $business_locations, $product->product_locations->pluck('id'), ['class' => 'form-control select2', 'multiple', 'id' => 'product_locations']); !!}
-              </div>
-            </div>
-
             <div class="clearfix"></div>
             
-            <div class="col-sm-4">
-              <div class="form-group">
-              <br>
-                <label>
-                  {!! Form::checkbox('enable_stock', 1, $product->enable_stock, ['class' => 'input-icheck', 'id' => 'enable_stock']); !!} <strong>@lang('product.manage_stock')</strong>
-                </label>@show_tooltip(__('tooltip.enable_stock')) <p class="help-block"><i>@lang('product.enable_stock_help')</i></p>
-              </div>
-            </div>
-            <div class="col-sm-4" id="alert_quantity_div" @if(!$product->enable_stock) style="display:none" @endif>
-              <div class="form-group">
-                {!! Form::label('alert_quantity', __('product.alert_quantity') . ':') !!} @show_tooltip(__('tooltip.alert_quantity'))
-                {!! Form::text('alert_quantity', $alert_quantity, ['class' => 'form-control input_number',
-                'placeholder' => __('product.alert_quantity') , 'min' => '0']); !!}
-              </div>
-            </div>
             @if(!empty($common_settings['enable_product_warranty']))
             <div class="col-sm-4">
               <div class="form-group">
@@ -150,21 +121,14 @@
                 @endforeach
             @endif
             <div class="clearfix"></div>
-            <div class="col-sm-8">
+            <div class="col-sm-8 hide">
               <div class="form-group">
                 {!! Form::label('product_description', __('lang_v1.product_description') . ':') !!}
                   {!! Form::textarea('product_description', $product->product_description, ['class' => 'form-control']); !!}
               </div>
             </div>
-            <div class="col-sm-4">
-              <div class="form-group">
-                {!! Form::label('image', __('lang_v1.product_image') . ':') !!}
-                {!! Form::file('image', ['id' => 'upload_image', 'accept' => 'image/*', 'required' => $is_image_required]); !!}
-                <small><p class="help-block">@lang('purchase.max_file_size', ['size' => (config('constants.document_size_limit') / 1000000)]). @lang('lang_v1.aspect_ratio_should_be_1_1') @if(!empty($product->image)) <br> @lang('lang_v1.previous_image_will_be_replaced') @endif</p></small>
-              </div>
             </div>
-            </div>
-            <div class="col-sm-4">
+            <div class="col-sm-4 hide">
               <div class="form-group">
                 {!! Form::label('product_brochure', __('lang_v1.product_brochure') . ':') !!}
                 {!! Form::file('product_brochure', ['id' => 'product_brochure', 'accept' => implode(',', array_keys(config('constants.document_upload_mimes_types')))]); !!}
@@ -215,7 +179,7 @@
             </div>
           </div>
           @endif
-          <div class="col-sm-4">
+          <div class="col-sm-4 hide">
             <div class="checkbox">
               <label>
                 {!! Form::checkbox('enable_sr_no', 1, $product->enable_sr_no, ['class' => 'input-icheck']); !!} <strong>@lang('lang_v1.enable_imei_or_sr_no')</strong>
@@ -224,7 +188,7 @@
             </div>
           </div>
 
-          <div class="col-sm-4">
+          <div class="col-sm-4 hide">
           <div class="form-group">
             <br>
             <label>
@@ -274,12 +238,6 @@
         @endif
 
 
-        <div class="col-sm-4">
-          <div class="form-group">
-            {!! Form::label('weight',  __('lang_v1.weight') . ':') !!}
-            {!! Form::text('weight', $product->weight, ['class' => 'form-control', 'placeholder' => __('lang_v1.weight')]); !!}
-          </div>
-        </div>
         <div class="clearfix"></div>
         
         @php
@@ -316,12 +274,6 @@
             @endif
         @endforeach
 
-        <div class="col-sm-3">
-          <div class="form-group">
-            {!! Form::label('preparation_time_in_minutes',  __('lang_v1.preparation_time_in_minutes') . ':') !!}
-            {!! Form::number('preparation_time_in_minutes', $product->preparation_time_in_minutes, ['class' => 'form-control', 'placeholder' => __('lang_v1.preparation_time_in_minutes')]); !!}
-          </div>
-        </div>
         <!--custom fields-->
         @include('layouts.partials.module_form_part')
         </div>
@@ -329,14 +281,14 @@
 
     @component('components.widget', ['class' => 'box-primary'])
         <div class="row">
-            <div class="col-sm-4 @if(!session('business.enable_price_tax')) hide @endif">
+            <div class="col-sm-4 hide @if(!session('business.enable_price_tax')) hide @endif">
               <div class="form-group">
                 {!! Form::label('tax', __('product.applicable_tax') . ':') !!}
                   {!! Form::select('tax', $taxes, $product->tax, ['placeholder' => __('messages.please_select'), 'class' => 'form-control select2'], $tax_attributes); !!}
               </div>
             </div>
 
-            <div class="col-sm-4 @if(!session('business.enable_price_tax')) hide @endif">
+            <div class="col-sm-4 hide @if(!session('business.enable_price_tax')) hide @endif">
               <div class="form-group">
                 {!! Form::label('tax_type', __('product.selling_price_tax_type') . ':*') !!}
                   {!! Form::select('tax_type',['inclusive' => __('product.inclusive'), 'exclusive' => __('product.exclusive')], $product->tax_type,
@@ -345,7 +297,7 @@
             </div>
 
             <div class="clearfix"></div>
-            <div class="col-sm-4">
+            <div class="col-sm-4 hide">
               <div class="form-group">
                 {!! Form::label('type', __('product.product_type') . ':*') !!} @show_tooltip(__('tooltip.product_type'))
                 {!! Form::select('type', $product_types, $product->type, ['class' => 'form-control select2',
@@ -357,6 +309,88 @@
             <input type="hidden" id="variation_counter" value="0">
             <input type="hidden" id="default_profit_percent" value="{{ $default_profit_percent }}">
             </div>
+    @endcomponent
+
+    @component('components.widget', ['class' => 'box-primary'])
+      <div class="row product-secondary-fields">
+        <div class="col-sm-12">
+          <small class="text-muted">@lang('lang_v1.optional')</small>
+        </div>
+
+        <div class="col-sm-4">
+          <div class="form-group">
+            {!! Form::label('product_locations', __('business.business_locations') . ':') !!} @show_tooltip(__('lang_v1.product_location_help'))
+              {!! Form::select('product_locations[]', $business_locations, $product->product_locations->pluck('id'), ['class' => 'form-control select2', 'multiple', 'id' => 'product_locations']); !!}
+          </div>
+        </div>
+
+        <div class="col-sm-4">
+          <div class="form-group">
+            {!! Form::label('sku', __('product.sku')  . ':*') !!} @show_tooltip(__('tooltip.sku'))
+            {!! Form::text('sku', $product->sku, ['class' => 'form-control',
+            'placeholder' => __('product.sku'), 'required']); !!}
+          </div>
+        </div>
+
+        <div class="col-sm-4">
+          <div class="form-group">
+            {!! Form::label('barcode_type', __('product.barcode_type') . ':*') !!}
+              {!! Form::select('barcode_type', $barcode_types, $product->barcode_type, ['placeholder' => __('messages.please_select'), 'class' => 'form-control select2', 'required']); !!}
+          </div>
+        </div>
+
+        <div class="col-sm-4">
+          <div class="form-group">
+          <br>
+            <label>
+              {!! Form::checkbox('enable_stock', 1, $product->enable_stock, ['class' => 'input-icheck', 'id' => 'enable_stock']); !!} <strong>@lang('product.manage_stock')</strong>
+            </label>@show_tooltip(__('tooltip.enable_stock')) <p class="help-block"><i>@lang('product.enable_stock_help')</i></p>
+          </div>
+        </div>
+
+        <div class="clearfix"></div>
+
+        <div class="col-sm-4" id="alert_quantity_div" @if(!$product->enable_stock) style="display:none" @endif>
+          <div class="form-group">
+            {!! Form::label('alert_quantity', __('product.alert_quantity') . ':') !!} @show_tooltip(__('tooltip.alert_quantity'))
+            {!! Form::text('alert_quantity', $alert_quantity, ['class' => 'form-control input_number',
+            'placeholder' => __('product.alert_quantity') , 'min' => '0']); !!}
+          </div>
+        </div>
+
+        <div class="col-sm-4">
+          <div class="form-group">
+            {!! Form::label('weight',  __('lang_v1.weight') . ':') !!}
+            {!! Form::text('weight', $product->weight, ['class' => 'form-control', 'placeholder' => __('lang_v1.weight')]); !!}
+          </div>
+        </div>
+
+        <div class="col-sm-4">
+          <div class="form-group">
+            {!! Form::label('preparation_time_in_minutes',  __('lang_v1.preparation_time_in_minutes') . ':') !!}
+            {!! Form::number('preparation_time_in_minutes', $product->preparation_time_in_minutes, ['class' => 'form-control', 'placeholder' => __('lang_v1.preparation_time_in_minutes')]); !!}
+          </div>
+        </div>
+
+        <div class="clearfix"></div>
+
+        <div class="col-sm-4">
+          <div class="form-group">
+            {!! Form::label('image', __('lang_v1.product_image') . ':') !!}
+            {!! Form::file('image', ['id' => 'upload_image', 'accept' => 'image/*', 'required' => $is_image_required]); !!}
+            <small><p class="help-block">@lang('purchase.max_file_size', ['size' => (config('constants.document_size_limit') / 1000000)]). @lang('lang_v1.aspect_ratio_should_be_1_1') @if(!empty($product->image)) <br> @lang('lang_v1.previous_image_will_be_replaced') @endif</p></small>
+          </div>
+        </div>
+
+        <div class="col-sm-4">
+          <div class="form-group">
+            {!! Form::label('variation_images', __('lang_v1.product_image') . ':') !!}
+            {!! Form::file('variation_images[]', ['class' => 'variation_images',
+                'accept' => 'image/*', 'multiple']); !!}
+            <small><p class="help-block">@lang('purchase.max_file_size', ['size' => (config('constants.document_size_limit') / 1000000)]) <br> @lang('lang_v1.aspect_ratio_should_be_1_1')</p></small>
+          </div>
+        </div>
+      </div>
     @endcomponent
 
   <div class="row">
@@ -386,10 +420,36 @@
 @endsection
 
 @section('javascript')
+  <script type="text/javascript">
+    window.__simple_product_form = true;
+  </script>
   <script src="{{ asset('js/product.js?v=' . $asset_v) }}"></script>
   <script type="text/javascript">
     $(document).ready( function(){
       __page_leave_confirmation('#product_add_form');
+
+      function syncCurrentQuantityLocation() {
+        var locations = $('#product_locations').val();
+        var location_id = locations && locations.length ? locations[0] : null;
+        if (!location_id) {
+          return;
+        }
+        $('#current_quantity_location').val(location_id);
+      }
+
+      function toggleCurrentQuantity() {
+        var enabled = $('#enable_stock').is(':checked');
+        $('#current_quantity').prop('disabled', !enabled);
+        if (!enabled) {
+          $('#current_quantity').val('');
+        }
+      }
+
+      $('#product_locations').on('change', syncCurrentQuantityLocation);
+      $('#enable_stock').on('change', toggleCurrentQuantity);
+
+      syncCurrentQuantityLocation();
+      toggleCurrentQuantity();
     });
   </script>
 @endsection

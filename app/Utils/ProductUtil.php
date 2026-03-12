@@ -21,6 +21,7 @@ use App\VariationLocationDetails;
 use App\VariationTemplate;
 use App\VariationValueTemplate;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ProductUtil extends Util
 {
@@ -1597,7 +1598,7 @@ class ProductUtil extends Util
      * @param  string  $search_type (like or exact)
      * @return object
      */
-    public function filterProduct($business_id, $search_term, $location_id = null, $not_for_selling = null, $price_group_id = null, $product_types = [], $search_fields = [], $check_qty = false, $search_type = 'like')
+    public function filterProduct($business_id, $search_term, $location_id = null, $not_for_selling = null, $price_group_id = null, $product_types = [], $search_fields = [], $check_qty = false, $search_type = 'like', $include_extra_fields = false)
     {
         $query = Product::join('variations', 'products.id', '=', 'variations.product_id')
                 ->active()
@@ -1726,6 +1727,25 @@ class ProductUtil extends Util
                 'variations.sub_sku',
                 'U.short_name as unit'
             );
+
+        if ($include_extra_fields) {
+            $query->addSelect(
+                'products.category_id',
+                'products.sub_category_id',
+                'products.brand_id',
+                'products.image as product_image',
+                'products.product_custom_field1',
+                'products.product_custom_field2',
+                'products.product_custom_field3',
+                'products.product_custom_field4'
+            );
+
+            if (Schema::hasColumn('products', 'repair_model_id')) {
+                $query->addSelect('products.repair_model_id');
+            } else {
+                $query->addSelect(DB::raw('NULL as repair_model_id'));
+            }
+        }
 
         if (! empty($price_group_id)) {
             $query->addSelect(DB::raw('IF (VGP.price_type = "fixed", VGP.price_inc_tax, VGP.price_inc_tax * variations.sell_price_inc_tax / 100) as variation_group_price'));

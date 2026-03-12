@@ -251,24 +251,21 @@
 			<div class="clearfix"></div>
 			
 			<div class="col-sm-12 text-center">
-				<button type="button" id="labels_preview" class="tw-dw-btn tw-dw-btn-primary tw-dw-btn-lg tw-text-white">@lang( 'barcode.preview' )</button>
+				<button type="button" id="labels_qz_print" class="tw-dw-btn tw-dw-btn-success tw-dw-btn-lg tw-text-white tw-ml-2">@lang('messages.print')</button>
 			</div>
 		</div>
 	@endcomponent
 	{!! Form::close() !!}
 
-	<div class="col-sm-8 hide display_label_div">
-		<h3 class="box-title">@lang( 'barcode.preview' )</h3>
-		<button type="button" class="col-sm-offset-2 btn btn-success btn-block" id="print_label">Print</button>
-	</div>
 	<div class="clearfix"></div>
 </section>
 
 <!-- Preview section-->
-<div id="preview_box">
-</div>
+<div id="preview_box"></div>
 
 @stop
 @section('javascript')
+	<script src="{{ asset('js/qz-tray.js?v=' . $asset_v) }}"></script>
+	<script src="{{ asset('js/qz-helper.js?v=' . $asset_v) }}"></script>
 	<script src="{{ asset('js/labels.js?v=' . $asset_v) }}"></script>
 @endsection

@@ -598,6 +598,21 @@ $(document).ready(function() {
 });
 
 function toggle_dsp_input() {
+    if (window.__simple_product_form) {
+        $('#single_dsp').removeClass('hide');
+        $('#single_dsp_inc_tax').addClass('hide');
+        $('.add-product-price-table')
+            .find('.variable_dsp_inc_tax')
+            .each(function() {
+                $(this).addClass('hide');
+            });
+        $('.add-product-price-table')
+            .find('.variable_dsp')
+            .each(function() {
+                $(this).removeClass('hide');
+            });
+        return;
+    }
     var tax_type = $('#tax_type').val();
     if (tax_type == 'inclusive') {
         $('.dsp_label').each(function() {
