@@ -1,6 +1,6 @@
 @forelse($products as $product)
 		<div class="col-md-3 col-xs-4 product_list no-print">
-			<div class="product_box hover:tw-shadow-lg hover:tw-animate-pulse" data-variation_id="{{$product->id}}" title="{{$product->name}} @if($product->type == 'variable')- {{$product->variation}} @endif {{ '(' . $product->sub_sku . ')'}} @if(!empty($show_prices)) @lang('lang_v1.default') - @format_currency($product->selling_price) @foreach($product->group_prices as $group_price) @if(array_key_exists($group_price->price_group_id, $allowed_group_prices)) {{$allowed_group_prices[$group_price->price_group_id]}} - @format_currency($group_price->price_inc_tax) @endif @endforeach @endif">
+			<div class="product_box hover:tw-shadow-lg hover:tw-animate-pulse" data-variation_id="{{$product->id}}" data-sub_sku="{{ $product->sub_sku }}" data-sku="{{ $product->sku ?? '' }}" title="{{$product->name}} @if($product->type == 'variable')- {{$product->variation}} @endif {{ '(' . $product->sub_sku . ')'}} @if(!empty($show_prices)) @lang('lang_v1.default') - @format_currency($product->selling_price) @foreach($product->group_prices as $group_price) @if(array_key_exists($group_price->price_group_id, $allowed_group_prices)) {{$allowed_group_prices[$group_price->price_group_id]}} - @format_currency($group_price->price_inc_tax) @endif @endforeach @endif">
 				@can('product.update')
 					<button type="button" class="pos-product-edit-btn" data-product_id="{{$product->product_id}}" title="@lang('messages.edit')">
 						<i class="fa fa-edit"></i>

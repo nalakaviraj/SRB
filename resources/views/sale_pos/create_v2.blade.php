@@ -40,7 +40,7 @@
 
             <div class="pos-v2__layout">
                 <main class="pos-v2__main">
-                    <div class="pos-v2__card">
+                    <div class="pos-v2__card pos-cart-panel">
                         {!! Form::hidden('location_id', $default_location->id ?? null, [
                             'id' => 'location_id',
                             'data-receipt_printer_type' => !empty($default_location->receipt_printer_type)
@@ -73,7 +73,7 @@
 
                 <aside class="pos-v2__side">
                     @if (empty($pos_settings['hide_product_suggestion']) && !isMobile())
-                        <div class="pos-v2__card">
+                        <div class="pos-v2__card pos-suggestion-panel">
                             <div class="pos-v2__shelf-head">
                                 <h3 class="pos-v2__shelf-title">Products</h3>
                                 <span class="pos-v2__shelf-sub">Tap to add</span>

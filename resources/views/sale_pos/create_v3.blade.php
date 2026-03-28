@@ -41,7 +41,7 @@
 
             <div class="pos-v3__layout">
                 <main class="pos-v3__main">
-                    <div class="pos-v3__card pos-v3__card--delay-1">
+                    <div class="pos-v3__card pos-v3__card--delay-1 pos-cart-panel">
                         <div class="pos-v3__card__head">
                             <h2>Checkout</h2>
                             <span>Scan or search products</span>
@@ -72,7 +72,7 @@
 
                 <aside class="pos-v3__side">
                     @if (empty($pos_settings['hide_product_suggestion']) && !isMobile())
-                        <div class="pos-v3__card pos-v3__card--delay-3">
+                        <div class="pos-v3__card pos-v3__card--delay-3 pos-suggestion-panel">
                             <div class="pos-v3__card__head">
                                 <h2>Catalog</h2>
                                 <span>Tap to add</span>
@@ -164,4 +164,3 @@
         @endforeach
     @endif
 @endsection
-

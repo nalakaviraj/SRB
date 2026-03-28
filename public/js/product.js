@@ -232,7 +232,36 @@ $(document).ready(function() {
         var variation_skus = [];
 
         var submit_type  = $(this).attr('value');
-
+        try {
+            localStorage.setItem('pos_index_invalidate_at', Date.now().toString());
+        } catch (e) {
+            // ignore storage errors
+        }
+        var $currentQty = $('#current_quantity');
+        if ($currentQty.length) {
+            var qtyVal = (typeof __read_number === 'function') ? __read_number($currentQty) : parseFloat($currentQty.val());
+            if (!isNaN(qtyVal) && qtyVal > 0) {
+                var $enableStock = $('#enable_stock');
+                if ($enableStock.length && !$enableStock.is(':checked')) {
+                    $enableStock.prop('checked', true).trigger('change');
+                }
+                var $locations = $('#product_locations');
+                if ($locations.length) {
+                    var selected = $locations.val();
+                    if (!selected || !selected.length) {
+                    var firstVal = $locations.find('option').filter(function() {
+                        var val = $(this).val();
+                        return val !== null && val !== '' && !$(this).prop('disabled');
+                    }).first().val();
+                        if (firstVal) {
+                            $locations.val([firstVal]).trigger('change');
+                        }
+                    }
+                }
+                $currentQty.trigger('input');
+                $('#single_dpp').trigger('input');
+            }
+        }
         $('#product_form_part').find('.input_sub_sku').each( function(){
             var element = $(this);
             var row_variation_id = '';

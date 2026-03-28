@@ -1,4 +1,20 @@
 $(document).ready(function() {
+    function getQueryParam(name) {
+        if (typeof URLSearchParams !== 'undefined') {
+            var params = new URLSearchParams(window.location.search);
+            return params.get(name);
+        }
+        var query = window.location.search || '';
+        query = query.replace(/^\?/, '');
+        var parts = query.split('&');
+        for (var i = 0; i < parts.length; i++) {
+            var pair = parts[i].split('=');
+            if (decodeURIComponent(pair[0] || '') === name) {
+                return decodeURIComponent(pair[1] || '');
+            }
+        }
+        return null;
+    }
     $('table#product_table tbody').find('.label-date-picker').each( function(){
         $(this).datepicker({
             autoclose: true
@@ -136,6 +152,16 @@ $(document).ready(function() {
     $(document).on('click', 'button#print_label', function() {
         window.print();
     });
+
+    var labelQty = parseInt(getQueryParam('label_qty') || '0', 10);
+    if (labelQty > 0) {
+        $('#product_table tbody input[name$="[quantity]"]').first().val(labelQty);
+    }
+    if (getQueryParam('auto_print') === '1') {
+        setTimeout(function() {
+            $('#labels_qz_print').trigger('click');
+        }, 300);
+    }
 });
 
 function queuePrintStation() {

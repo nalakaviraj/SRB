@@ -399,17 +399,9 @@
             <input type="hidden" name="submit_type" id="submit_type">
             <div class="text-center">
                 <div class="btn-group">
-                    @if($selling_price_group_count)
-                    <button type="submit" value="submit_n_add_selling_prices" class="tw-dw-btn tw-dw-btn-warning tw-dw-btn-lg tw-text-white submit_product_form">@lang('lang_v1.save_n_add_selling_price_group_prices')</button>
-                    @endif
-
-                    @can('product.opening_stock')
-                    <button id="opening_stock_button" @if(!empty($duplicate_product) && $duplicate_product->enable_stock == 0) disabled @endif type="submit" value="submit_n_add_opening_stock" class="tw-dw-btn tw-dw-btn-lg tw-text-white bg-purple submit_product_form">@lang('lang_v1.save_n_add_opening_stock')</button>
-                    @endcan
-
-                    <button type="submit" value="save_n_add_another" class="tw-dw-btn tw-dw-btn-lg bg-maroon submit_product_form">@lang('lang_v1.save_n_add_another')</button>
-
                     <button type="submit" value="submit" class="tw-dw-btn tw-dw-btn-primary tw-dw-btn-lg tw-text-white submit_product_form">@lang('messages.save')</button>
+                    <button type="submit" id="print_label_button" value="save_n_print_label" class="tw-dw-btn tw-dw-btn-lg bg-purple submit_product_form">@lang('barcode.print_labels')</button>
+                    <button type="submit" value="save_n_add_another" class="tw-dw-btn tw-dw-btn-lg bg-maroon submit_product_form">@lang('lang_v1.save_n_add_another')</button>
                 </div>
 
             </div>
@@ -420,6 +412,30 @@
 </section>
 <!-- /.content -->
 
+<div class="modal fade" id="print_label_modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title">@lang('barcode.print_labels')</h4>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="print_label_qty">@lang('barcode.no_of_labels')</label>
+                    <input type="number" class="form-control" id="print_label_qty" min="1" value="1">
+                    <input type="hidden" id="print_label_product_id">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="tw-dw-btn tw-dw-btn-secondary" data-dismiss="modal">@lang('messages.cancel')</button>
+                <button type="button" class="tw-dw-btn tw-dw-btn-primary tw-text-white" id="print_label_confirm">@lang('barcode.print_labels')</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @section('javascript')
@@ -427,9 +443,15 @@
 <script type="text/javascript">
     window.__simple_product_form = true;
 </script>
+<script src="{{ asset('js/qz-tray.js?v=' . $asset_v) }}"></script>
+<script src="{{ asset('js/qz-helper.js?v=' . $asset_v) }}"></script>
 <script src="{{ asset('js/product.js?v=' . $asset_v) }}"></script>
 
 <script type="text/javascript">
+    var printLabelsFlag = "{{ request()->get('print_labels') ? '1' : '' }}";
+    var printLabelProductId = "{{ request()->get('product_id') ?? '' }}";
+    var quickLabelDataUrl = "{{ action([\App\Http\Controllers\LabelsController::class, 'quickPrintData']) }}";
+
     $(document).ready(function() {
         __page_leave_confirmation('#product_add_form');
         onScan.attachTo(document, {
@@ -507,6 +529,79 @@
         syncOpeningStockNames();
         toggleCurrentQuantity();
         syncOpeningStockValues();
+
+        if (printLabelsFlag && printLabelProductId) {
+            $('#print_label_product_id').val(printLabelProductId);
+            $('#print_label_modal').modal('show');
+        }
+
+        $('#print_label_confirm').on('click', function() {
+            if (typeof window.qzHelper === 'undefined') {
+                if (typeof toastr !== 'undefined') {
+                    toastr.error('QZ Tray not loaded. Please install QZ Tray and refresh.');
+                }
+                return;
+            }
+            var qty = parseInt($('#print_label_qty').val(), 10);
+            if (!qty || qty < 1) {
+                qty = 1;
+            }
+            var productId = $('#print_label_product_id').val();
+            if (!productId) {
+                return;
+            }
+            $.ajax({
+                method: 'GET',
+                url: quickLabelDataUrl,
+                dataType: 'json',
+                data: { product_id: productId }
+            }).done(function(result) {
+                if (!result || !result.success || !result.data) {
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error('Failed to prepare labels.');
+                    }
+                    return;
+                }
+                var data = {
+                    'barcode_setting': result.data.barcode_setting,
+                    'print[name]': 1,
+                    'print[name_size]': 15,
+                    'print[variations]': 1,
+                    'print[variations_size]': 17,
+                    'print[price]': 1,
+                    'print[price_size]': 17,
+                    'print[price_type]': 'inclusive',
+                    'print[business_name]': 1,
+                    'print[business_name_size]': 20,
+                    'print[packing_date]': 1,
+                    'print[packing_date_size]': 12,
+                    'print[lot_number]': 1,
+                    'print[lot_number_size]': 12,
+                    'print[exp_date]': 1,
+                    'print[exp_date_size]': 12,
+                    'products[0][product_id]': result.data.product_id,
+                    'products[0][variation_id]': result.data.variation_id,
+                    'products[0][quantity]': qty
+                };
+                window.qzHelper.printLabelsFromData(data)
+                    .then(function() {
+                        if (typeof toastr !== 'undefined') {
+                            toastr.success('Label sent to printer.');
+                        }
+                        $('#print_label_modal').modal('hide');
+                    })
+                    .catch(function(err) {
+                        console.error(err);
+                        if (typeof toastr !== 'undefined') {
+                            toastr.error('Failed to print labels.');
+                        }
+                    });
+            }).fail(function() {
+                if (typeof toastr !== 'undefined') {
+                    toastr.error('Failed to prepare labels.');
+                }
+            });
+        });
     });
 </script>
 @endsection

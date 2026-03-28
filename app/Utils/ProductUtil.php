@@ -1598,7 +1598,7 @@ class ProductUtil extends Util
      * @param  string  $search_type (like or exact)
      * @return object
      */
-    public function filterProduct($business_id, $search_term, $location_id = null, $not_for_selling = null, $price_group_id = null, $product_types = [], $search_fields = [], $check_qty = false, $search_type = 'like', $include_extra_fields = false)
+    public function filterProduct($business_id, $search_term, $location_id = null, $not_for_selling = null, $price_group_id = null, $product_types = [], $search_fields = [], $check_qty = false, $search_type = 'like', $include_extra_fields = false, $ignore_location = false)
     {
         $query = Product::join('variations', 'products.id', '=', 'variations.product_id')
                 ->active()
@@ -1606,11 +1606,11 @@ class ProductUtil extends Util
                 ->leftjoin('units as U', 'products.unit_id', '=', 'U.id')
                 ->leftjoin(
                     'variation_location_details AS VLD',
-                    function ($join) use ($location_id) {
+                    function ($join) use ($location_id, $ignore_location) {
                         $join->on('variations.id', '=', 'VLD.variation_id');
 
                         //Include Location
-                        if (! empty($location_id)) {
+                        if (! $ignore_location && ! empty($location_id)) {
                             $join->where(function ($query) use ($location_id) {
                                 $query->where('VLD.location_id', '=', $location_id);
                                 //Check null to show products even if no quantity is available in a location.
@@ -1711,8 +1711,14 @@ class ProductUtil extends Util
         }
 
         if (! empty($location_id)) {
-            $query->ForLocation($location_id);
+            if (! $ignore_location) {
+                $query->ForLocation($location_id);
+            }
         }
+
+        $qty_select = $ignore_location
+            ? DB::raw('COALESCE(SUM(VLD.qty_available), 0) as qty_available')
+            : 'VLD.qty_available';
 
         $query->select(
                 'products.id as product_id',
@@ -1722,7 +1728,7 @@ class ProductUtil extends Util
                 'products.enable_stock',
                 'variations.id as variation_id',
                 'variations.name as variation',
-                'VLD.qty_available',
+                $qty_select,
                 'variations.sell_price_inc_tax as selling_price',
                 'variations.sub_sku',
                 'U.short_name as unit'
@@ -1755,9 +1761,13 @@ class ProductUtil extends Util
             $query->addSelect('pl.id as purchase_line_id', 'pl.lot_number');
         }
 
-        $data = $query->groupBy('variations.id')
-             ->orderBy('VLD.qty_available', 'desc')
-             ->get();
+        $data = $query->groupBy('variations.id');
+        if ($ignore_location) {
+            $data->orderBy(DB::raw('qty_available'), 'desc');
+        } else {
+            $data->orderBy('VLD.qty_available', 'desc');
+        }
+        $data = $data->get();
 
         // 🔐 Escape `name`, `variation`, `sub_sku`
         $data->transform(function ($item) {

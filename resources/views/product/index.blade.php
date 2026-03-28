@@ -227,12 +227,112 @@
     <script src="{{ asset('js/opening_stock.js?v=' . $asset_v) }}"></script>
     <script type="text/javascript">
         $(document).ready(function() {
+            var product_table_columns = [{
+                    data: 'mass_delete'
+                },
+                {
+                    data: 'image',
+                    name: 'products.image'
+                },
+                {
+                    data: 'action',
+                    name: 'action'
+                },
+                {
+                    data: 'product',
+                    name: 'products.name'
+                },
+                {
+                    data: 'product_locations',
+                    name: 'product_locations'
+                },
+                @can('view_purchase_price')
+                    {
+                        data: 'purchase_price',
+                        name: 'max_purchase_price',
+                        searchable: false
+                    },
+                @endcan
+                @can('access_default_selling_price')
+                    {
+                        data: 'selling_price',
+                        name: 'max_price',
+                        searchable: false
+                    },
+                @endcan {
+                    data: 'current_stock',
+                    searchable: false
+                },
+                {
+                    data: 'type',
+                    name: 'products.type'
+                },
+                {
+                    data: 'category',
+                    name: 'c1.name'
+                },
+                {
+                    data: 'brand',
+                    name: 'brands.name'
+                },
+                {
+                    data: 'tax',
+                    name: 'tax_rates.name',
+                    searchable: false
+                },
+                {
+                    data: 'sku',
+                    name: 'products.sku'
+                },
+                {
+                    data: 'product_custom_field1',
+                    name: 'products.product_custom_field1',
+                    visible: $('#cf_1').text().length > 0
+                },
+                {
+                    data: 'product_custom_field2',
+                    name: 'products.product_custom_field2',
+                    visible: $('#cf_2').text().length > 0
+                },
+                {
+                    data: 'product_custom_field3',
+                    name: 'products.product_custom_field3',
+                    visible: $('#cf_3').text().length > 0
+                },
+                {
+                    data: 'product_custom_field4',
+                    name: 'products.product_custom_field4',
+                    visible: $('#cf_4').text().length > 0
+                },
+                {
+                    data: 'product_custom_field5',
+                    name: 'products.product_custom_field5',
+                    visible: $('#cf_5').text().length > 0
+                },
+                {
+                    data: 'product_custom_field6',
+                    name: 'products.product_custom_field6',
+                    visible: $('#cf_6').text().length > 0
+                },
+                {
+                    data: 'product_custom_field7',
+                    name: 'products.product_custom_field7',
+                    visible: $('#cf_7').text().length > 0
+                },
+                {
+                    data: 'created_at',
+                    name: 'products.created_at',
+                    visible: false,
+                    searchable: false
+                },
+            ];
+
             product_table = $('#product_table').DataTable({
                 processing: true,
                 serverSide: true,
                 fixedHeader:false,
                 aaSorting: [
-                    [3, 'asc']
+                    [product_table_columns.length - 1, 'desc']
                 ],
                 scrollY: "75vh",
                 scrollX: true,
@@ -265,99 +365,7 @@
                     "orderable": false,
                     "searchable": false
                 }],
-                columns: [{
-                        data: 'mass_delete'
-                    },
-                    {
-                        data: 'image',
-                        name: 'products.image'
-                    },
-                    {
-                        data: 'action',
-                        name: 'action'
-                    },
-                    {
-                        data: 'product',
-                        name: 'products.name'
-                    },
-                    {
-                        data: 'product_locations',
-                        name: 'product_locations'
-                    },
-                    @can('view_purchase_price')
-                        {
-                            data: 'purchase_price',
-                            name: 'max_purchase_price',
-                            searchable: false
-                        },
-                    @endcan
-                    @can('access_default_selling_price')
-                        {
-                            data: 'selling_price',
-                            name: 'max_price',
-                            searchable: false
-                        },
-                    @endcan {
-                        data: 'current_stock',
-                        searchable: false
-                    },
-                    {
-                        data: 'type',
-                        name: 'products.type'
-                    },
-                    {
-                        data: 'category',
-                        name: 'c1.name'
-                    },
-                    {
-                        data: 'brand',
-                        name: 'brands.name'
-                    },
-                    {
-                        data: 'tax',
-                        name: 'tax_rates.name',
-                        searchable: false
-                    },
-                    {
-                        data: 'sku',
-                        name: 'products.sku'
-                    },
-                    {
-                        data: 'product_custom_field1',
-                        name: 'products.product_custom_field1',
-                        visible: $('#cf_1').text().length > 0
-                    },
-                    {
-                        data: 'product_custom_field2',
-                        name: 'products.product_custom_field2',
-                        visible: $('#cf_2').text().length > 0
-                    },
-                    {
-                        data: 'product_custom_field3',
-                        name: 'products.product_custom_field3',
-                        visible: $('#cf_3').text().length > 0
-                    },
-                    {
-                        data: 'product_custom_field4',
-                        name: 'products.product_custom_field4',
-                        visible: $('#cf_4').text().length > 0
-                    },
-                    {
-                        data: 'product_custom_field5',
-                        name: 'products.product_custom_field5',
-                        visible: $('#cf_5').text().length > 0
-                    },
-                    {
-                        data: 'product_custom_field6',
-                        name: 'products.product_custom_field6',
-                        visible: $('#cf_6').text().length > 0
-                    },
-                    {
-                        data: 'product_custom_field7',
-                        name: 'products.product_custom_field7',
-                        visible: $('#cf_7').text().length > 0
-                    },
-                ],
+                columns: product_table_columns,
                 createdRow: function(row, data, dataIndex) {
                     if ($('input#is_rack_enabled').val() == 1) {
                         var target_col = 0;

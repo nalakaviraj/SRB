@@ -12,7 +12,7 @@ var pos_local_index = {
     loading: false,
     last_updated: 0,
 };
-var pos_local_product_list_enabled = false;
+var pos_local_product_list_enabled = true;
 var pos_local_index_ttl_ms = 20 * 60 * 1000;
 var pos_local_index_max_results = 30;
 var pos_idb_promise = null;
@@ -22,7 +22,6 @@ var pos_last_exact_sku = '';
 var pos_last_exact_sku_at = 0;
 var pos_suggestion_active = false;
 var pos_suggestion_index = -1;
-var pos_pending_suggestion_focus = false;
 
 function pos_focus_search(select_text) {
     var $search = $('input#search_product');
@@ -46,7 +45,6 @@ function pos_clear_active_suggestion() {
     $('div#product_list_body .product_box').removeClass('active');
     pos_suggestion_active = false;
     pos_suggestion_index = -1;
-    pos_pending_suggestion_focus = false;
 }
 
 function pos_get_suggestion_items() {
@@ -81,7 +79,6 @@ function pos_set_active_suggestion(index) {
     }
     pos_suggestion_index = nextIndex;
     pos_suggestion_active = true;
-    pos_pending_suggestion_focus = false;
     $items.removeClass('active');
     var $active = $items.eq(nextIndex).addClass('active');
 
@@ -98,16 +95,6 @@ function pos_set_active_suggestion(index) {
         }
     }
     return true;
-}
-
-function pos_request_suggestion_focus() {
-    pos_pending_suggestion_focus = true;
-    var $items = pos_get_suggestion_items();
-    if ($items.length) {
-        pos_set_active_suggestion(0);
-        return true;
-    }
-    return false;
 }
 
 function pos_focus_last_qty_with_retry(attempt) {
@@ -200,15 +187,6 @@ function pos_get_index_key() {
     var location_id = $('input#location_id').val() || '0';
     var price_group = pos_get_price_group();
     return 'pos_index_' + location_id + '_' + price_group;
-}
-
-function pos_get_index_invalidate_at() {
-    if (typeof localStorage === 'undefined') {
-        return 0;
-    }
-    var raw = localStorage.getItem('pos_index_invalidate_at');
-    var ts = parseInt(raw, 10);
-    return isNaN(ts) ? 0 : ts;
 }
 
 function pos_prepare_index(items) {
@@ -567,7 +545,6 @@ function pos_try_add_exact_from_suggestion(term) {
             $('input#suggestion_page').val(1);
             pos_last_exact_sku = t;
             pos_last_exact_sku_at = now;
-            pos_pending_suggestion_focus = false;
             pos_product_row(variation_id, null, null, 1);
             pos_clear_search_input();
             $('div#product_list_body').html('');
@@ -679,17 +656,10 @@ function pos_render_local_product_list(filters, page) {
     });
     $list.append(html);
     pos_try_add_exact_from_suggestion(filters.term);
-    if (pos_pending_suggestion_focus) {
-        pos_set_active_suggestion(0);
-    }
 }
 
 function pos_load_local_index(force_refresh) {
     var key = pos_get_index_key();
-    var invalidate_at = pos_get_index_invalidate_at();
-    if (invalidate_at && pos_local_index.last_updated && pos_local_index.last_updated < invalidate_at) {
-        force_refresh = true;
-    }
     if (!force_refresh && pos_local_index.loaded && pos_local_index.key === key) {
         return;
     }
@@ -704,9 +674,6 @@ function pos_load_local_index(force_refresh) {
             pos_local_index.last_updated = cached.updated_at || 0;
         }
         var is_stale = !cached || !cached.updated_at || (now - cached.updated_at) > pos_local_index_ttl_ms;
-        if (invalidate_at && (!cached || !cached.updated_at || cached.updated_at < invalidate_at)) {
-            is_stale = true;
-        }
         if (!force_refresh && !is_stale) {
             pos_local_index.loading = false;
             return;
@@ -734,13 +701,6 @@ function pos_load_local_index(force_refresh) {
         }).always(function() {
             pos_local_index.loading = false;
         });
-    });
-}
-if (typeof window !== 'undefined' && window.addEventListener) {
-    window.addEventListener('storage', function(e) {
-        if (e.key === 'pos_index_invalidate_at') {
-            pos_load_local_index(true);
-        }
     });
 }
 $(document).ready(function() {
@@ -981,40 +941,6 @@ $(document).ready(function() {
                 source: function(request, response) {
                     var price_group = pos_get_price_group();
                     var search_fields = pos_get_search_fields();
-                    if (!pos_local_product_list_enabled) {
-                        $.getJSON('/products/list', {
-                            location_id: $('input#location_id').val(),
-                            price_group: price_group,
-                            not_for_selling: 0,
-                            term: request.term,
-                            search_fields: search_fields,
-                            pos_index: 1
-                        }).done(function(data) {
-                            response(data || []);
-                        }).fail(function() {
-                            response([]);
-                        });
-                        return;
-                    }
-                    var invalidate_at = pos_get_index_invalidate_at();
-                    if (invalidate_at && (!pos_local_index.last_updated || pos_local_index.last_updated < invalidate_at)) {
-                        if (!pos_local_index.loading) {
-                            pos_load_local_index(true);
-                        }
-                        $.getJSON('/products/list', {
-                            location_id: $('input#location_id').val(),
-                            price_group: price_group,
-                            not_for_selling: 0,
-                            term: request.term,
-                            search_fields: search_fields,
-                            pos_index: 1
-                        }).done(function(data) {
-                            response(data || []);
-                        }).fail(function() {
-                            response([]);
-                        });
-                        return;
-                    }
                     var local_results = pos_local_search(request.term, search_fields);
                     if (local_results && local_results.length) {
                         response(local_results);
@@ -2482,19 +2408,19 @@ $(document).on('change', '#pos_edit_location_id', function() {
         if (key == 13) {
             var input_val_enter = $(this).val();
             if (input_val_enter && input_val_enter.trim() !== '') {
-                e.preventDefault();
-                pos_request_suggestion_focus();
-                return;
+                var $items_enter = pos_get_suggestion_items();
+                if ($items_enter.length) {
+                    e.preventDefault();
+                    pos_set_active_suggestion(0);
+                    return;
+                }
             }
         }
         if (key == 40 || key == 38) {
-            var input_val_nav = $(this).val();
-            if (input_val_nav && input_val_nav.trim() !== '') {
+            var $items_nav = pos_get_suggestion_items();
+            if ($items_nav.length) {
                 e.preventDefault();
-                pos_request_suggestion_focus();
-                if (pos_suggestion_active) {
-                    pos_set_active_suggestion(key == 40 ? 0 : -1);
-                }
+                pos_set_active_suggestion(key == 40 ? 0 : ($items_nav.length - 1));
                 return;
             }
         }
@@ -2527,20 +2453,6 @@ $(document).on('change', '#pos_edit_location_id', function() {
                     .focus()
                     .select();
             }
-        }
-    });
-    $(document).on('keydown', function(e) {
-        if (!$(e.target).is('#search_product')) {
-            return;
-        }
-        var key = e.which;
-        var input_val = $(e.target).val();
-        if (!input_val || input_val.trim() === '') {
-            return;
-        }
-        if (key == 13 || key == 38 || key == 40) {
-            e.preventDefault();
-            pos_request_suggestion_focus();
         }
     });
     $(document).on('keydown', function(e) {
@@ -2959,9 +2871,6 @@ function get_product_suggestion_list(category_id, brand_id, location_id, url = n
             $('div#product_list_body').append(result);
             $('#suggestion_page_loader').fadeOut(700);
             pos_try_add_exact_from_suggestion(term);
-            if (pos_pending_suggestion_focus) {
-                pos_set_active_suggestion(0);
-            }
         },
     });
 }

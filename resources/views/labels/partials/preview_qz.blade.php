@@ -85,7 +85,7 @@
 				<div class="label-inner @if($rotate_labels) rotate @endif">
 					<div class="label-content" style="left: 50%; top: 0; transform: translateX(-50%) scale({{$scale}});">
 						@if(!empty($print['business_name']))
-							<b class="label-line" style="font-size: {{round($print['business_name_size'] * $business_name_scale, 2)}}px">{{$business_name}}</b>
+							<b class="label-line" style="font-size: {{round($print['business_name_size'] * $business_name_scale, 2)}}px">SR&amp;BC</b>
 						@endif
 
 						@if(!empty($print['name']))
@@ -101,8 +101,8 @@
 						@endif
 
 						@if(!empty($print['price']))
-							<span class="label-line" style="font-size: {{$print['name_size']}}px;">
-								<b>{{session('currency')['symbol'] ?? ''}}
+                                <span class="label-line" style="font-size: {{$print['name_size']}}px;">
+                                    <b>Rs 
 								@if($print['price_type'] == 'inclusive')
 									{{@num_format($page_product->sell_price_inc_tax)}}
 								@else

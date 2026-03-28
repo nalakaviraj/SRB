@@ -48,12 +48,6 @@
                             </div>
                             <input type="hidden" id="payment_row_index" value="{{ count($payment_lines) }}">
                         </div>
-                        <div class="row">
-                            <div class="col-md-12">
-                                <button type="button" class="tw-dw-btn tw-dw-btn-primary tw-text-white tw-dw-btn-sm tw-w-full"
-                                    id="add-payment-row">@lang('sale.add_payment_row')</button>
-                            </div>
-                        </div>
                         <br>
                         <div class="row @if ($change_return['amount'] == 0) hide @endif payment_row"
                             id="change_return_payment_data">
@@ -110,25 +104,28 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    {!! Form::label('sale_note', __('sale.sell_note') . ':') !!}
-                                    {!! Form::textarea('sale_note', !empty($transaction) ? $transaction->additional_notes : null, [
-                                        'class' => 'form-control',
-                                        'rows' => 3,
-                                        'placeholder' => __('sale.sell_note'),
-                                    ]) !!}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    {!! Form::label('staff_note', __('sale.staff_note') . ':') !!}
-                                    {!! Form::textarea('staff_note', !empty($transaction) ? $transaction->staff_note : null, [
-                                        'class' => 'form-control',
-                                        'rows' => 3,
-                                        'placeholder' => __('sale.staff_note'),
-                                    ]) !!}
+
+                        <div class="box box-solid pos-payment-summary">
+                            <div class="box-body">
+                                <h4 class="tw-text-lg tw-font-semibold tw-mb-3">@lang('sale.order_summary')</h4>
+                                <div class="table-responsive pos-order-summary">
+                                    <table class="table table-condensed table-striped" id="pos_order_summary_table">
+                                        <thead>
+                                            <tr>
+                                                <th>@lang('sale.product')</th>
+                                                <th class="text-right">@lang('sale.qty')</th>
+                                                <th class="text-right">@lang('sale.price_inc_tax')</th>
+                                                <th class="text-right">@lang('sale.subtotal')</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="pos_order_summary_body"></tbody>
+                                        <tfoot>
+                                            <tr>
+                                                <th colspan="3" class="text-right">@lang('sale.total')</th>
+                                                <th class="text-right" id="pos_order_summary_total">0</th>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
                                 </div>
                             </div>
                         </div>

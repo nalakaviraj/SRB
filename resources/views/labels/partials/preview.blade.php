@@ -37,7 +37,7 @@
 		<div style="display:inline-block;vertical-align:middle;line-height:16px !important;">
 			{{-- Business Name --}}
 			@if(!empty($print['business_name']))
-				<b style="display: block !important" class="text-uppercase">{{$business_name}}</b>
+				<b style="display: block !important" class="text-uppercase">SR&amp;BC</b>
 			@endif
 
 			{{-- Product Name --}}
@@ -58,7 +58,7 @@
 			{{-- Price --}}
 			@if(!empty($print['price']))
 				<b>@lang('lang_v1.price'):</b>
-				{{session('currency')['symbol'] ?? ''}}
+				Rs
 
 				@if($print['price_type'] == 'inclusive')
 					{{@num_format($details['details']->sell_price_inc_tax)}}

@@ -16,8 +16,6 @@
 	<link rel="stylesheet" href="{{ asset('css/pos-minimal.css?v=' . $asset_v) }}">
 @endif
 
-@stack('pos_css')
-
 @if(isset($pos_layout) && $pos_layout)
 	<style type="text/css">
 		.content{

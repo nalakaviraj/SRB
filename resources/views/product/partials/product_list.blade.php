@@ -1,5 +1,5 @@
 @php 
-    $colspan = 15;
+    $colspan = 19;
     $custom_labels = json_decode(session('business.custom_labels'), true);
 @endphp
 <table class="table table-bordered table-striped ajax_view hide-footer" id="product_table">
@@ -35,6 +35,7 @@
             <th id="cf_5">{{ $custom_labels['product']['custom_field_5'] ?? '' }}</th>
             <th id="cf_6">{{ $custom_labels['product']['custom_field_6'] ?? '' }}</th>
             <th id="cf_7">{{ $custom_labels['product']['custom_field_7'] ?? '' }}</th>
+            <th class="hide">@lang('messages.date')</th>
         </tr>
     </thead>
     <tfoot>

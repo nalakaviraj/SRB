@@ -329,6 +329,66 @@ class LabelsController extends Controller
         }
     }
 
+    public function quickPrintData(Request $request)
+    {
+        try {
+            $product_id = $request->get('product_id');
+            $business_id = $request->session()->get('user.business_id');
+            if (empty($product_id)) {
+                return response()->json([
+                    'success' => false,
+                    'msg' => __('messages.something_went_wrong'),
+                ], 422);
+            }
+
+            $product = Product::where('business_id', $business_id)
+                ->with(['variations'])
+                ->findOrFail($product_id);
+            $variation = $product->variations->first();
+            if (! $variation) {
+                return response()->json([
+                    'success' => false,
+                    'msg' => __('messages.something_went_wrong'),
+                ], 422);
+            }
+
+            $barcode_setting = Barcode::where('business_id', $business_id)
+                ->orWhereNull('business_id')
+                ->where('is_default', 1)
+                ->value('id');
+
+            if (empty($barcode_setting)) {
+                $barcode_setting = Barcode::where('business_id', $business_id)
+                    ->orWhereNull('business_id')
+                    ->orderBy('id', 'asc')
+                    ->value('id');
+            }
+
+            if (empty($barcode_setting)) {
+                return response()->json([
+                    'success' => false,
+                    'msg' => __('lang_v1.barcode_label_error'),
+                ], 422);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'product_id' => $product->id,
+                    'variation_id' => $variation->id,
+                    'barcode_setting' => $barcode_setting,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            \Log::emergency('File:'.$e->getFile().'Line:'.$e->getLine().'Message:'.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'msg' => __('messages.something_went_wrong'),
+            ], 500);
+        }
+    }
+
     public function queuePrint(Request $request)
     {
         try {

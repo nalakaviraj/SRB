@@ -2280,6 +2280,7 @@ class SellPosController extends Controller
             $brand_id = $request->get('brand_id');
             $location_id = $request->get('location_id');
             $term = $request->get('term');
+            $ignore_location = true;
 
             $check_qty = false;
             $business_id = $request->session()->get('user.business_id');
@@ -2287,15 +2288,14 @@ class SellPosController extends Controller
             $pos_settings = empty($business->pos_settings) ? $this->businessUtil->defaultPosSettings() : json_decode($business->pos_settings, true);
 
             $products = Variation::join('products as p', 'variations.product_id', '=', 'p.id')
-                ->join('product_locations as pl', 'pl.product_id', '=', 'p.id')
                 ->join('units as u', 'p.unit_id', '=', 'u.id')
                 ->leftjoin(
                     'variation_location_details AS VLD',
-                    function ($join) use ($location_id) {
+                    function ($join) use ($location_id, $ignore_location) {
                         $join->on('variations.id', '=', 'VLD.variation_id');
 
                         //Include Location
-                        if (!empty($location_id)) {
+                        if (!$ignore_location && !empty($location_id)) {
                             $join->where(function ($query) use ($location_id) {
                                 $query->where('VLD.location_id', '=', $location_id);
                                 //Check null to show products even if no quantity is available in a location.
@@ -2309,10 +2309,7 @@ class SellPosController extends Controller
                 ->where('p.type', '!=', 'modifier')
                 ->where('p.is_inactive', 0)
                 ->where('p.not_for_selling', 0)
-            //Hide products not available in the selected location
-                ->where(function ($q) use ($location_id) {
-                    $q->where('pl.location_id', $location_id);
-                });
+            ;
 
             //Include search
             if (!empty($term)) {
@@ -2351,6 +2348,10 @@ class SellPosController extends Controller
                 $products->where('p.repair_model_id', $request->get('repair_model_id'));
             }
 
+            $qty_select = $ignore_location
+                ? DB::raw('COALESCE(SUM(VLD.qty_available), 0) as qty_available')
+                : 'VLD.qty_available';
+
             $products = $products->select(
                 'p.id as product_id',
                 'p.name',
@@ -2359,13 +2360,14 @@ class SellPosController extends Controller
                 'p.image as product_image',
                 'variations.id',
                 'variations.name as variation',
-                'VLD.qty_available',
+                $qty_select,
                 'variations.default_sell_price as selling_price',
                 'variations.sub_sku',
                 'u.short_name as unit'
             )
                 ->with(['media', 'group_prices'])
                 ->orderBy('p.name', 'asc')
+                ->groupBy('variations.id')
                 ->paginate(50);
 
             $price_groups = SellingPriceGroup::where('business_id', $business_id)->active()->pluck('name', 'id');

@@ -130,6 +130,7 @@ class ProductController extends Controller
                 'products.product_custom_field16', 'products.product_custom_field17', 'products.product_custom_field18', 
                 'products.product_custom_field19', 'products.product_custom_field20',
                 'products.alert_quantity',
+                'products.created_at as created_at',
                 DB::raw('SUM(vld.qty_available) as current_stock'),
                 DB::raw('MAX(v.sell_price_inc_tax) as max_price'),
                 DB::raw('MIN(v.sell_price_inc_tax) as min_price'),
@@ -459,6 +460,13 @@ class ProductController extends Controller
 
             $product_details['enable_stock'] = (! empty($request->input('enable_stock')) && $request->input('enable_stock') == 1) ? 1 : 0;
             $product_details['not_for_selling'] = (! empty($request->input('not_for_selling')) && $request->input('not_for_selling') == 1) ? 1 : 0;
+            $current_qty_input = $request->input('current_quantity');
+            if ($current_qty_input !== null && $current_qty_input !== '') {
+                $current_qty = $this->productUtil->num_uf($current_qty_input);
+                if ($current_qty > 0) {
+                    $product_details['enable_stock'] = 1;
+                }
+            }
 
             if (! empty($request->input('sub_category_id'))) {
                 $product_details['sub_category_id'] = $request->input('sub_category_id');
@@ -504,12 +512,6 @@ class ProductController extends Controller
                 $product->save();
             }
 
-            //Add product locations
-            $product_locations = $request->input('product_locations');
-            if (! empty($product_locations)) {
-                $product->product_locations()->sync($product_locations);
-            }
-
             if ($product->type == 'single') {
                 $this->productUtil->createSingleProductVariation($product->id, $product->sku, $request->input('single_dpp'), $request->input('single_dpp_inc_tax'), $request->input('profit_percent'), $request->input('single_dsp'), $request->input('single_dsp_inc_tax'));
             } elseif ($product->type == 'variable') {
@@ -537,6 +539,66 @@ class ProductController extends Controller
                 }
 
                 $this->productUtil->createSingleProductVariation($product->id, $product->sku, $request->input('item_level_purchase_price_total'), $request->input('purchase_price_inc_tax'), $request->input('profit_percent'), $request->input('selling_price'), $request->input('selling_price_inc_tax'), $combo_variations);
+            }
+
+            $product_locations = $request->input('product_locations', []);
+            $opening_stock = $request->input('opening_stock', []);
+            $opening_stock_filled = false;
+            if (! empty($opening_stock)) {
+                foreach ($opening_stock as $row) {
+                    $qty_val = $this->productUtil->num_uf($row['quantity'] ?? 0);
+                    if ($qty_val > 0) {
+                        $opening_stock_filled = true;
+                        break;
+                    }
+                }
+            }
+
+            if (! $opening_stock_filled) {
+                $current_qty_input = $request->input('current_quantity');
+                if ($current_qty_input !== null && $current_qty_input !== '') {
+                    $current_qty = $this->productUtil->num_uf($current_qty_input);
+                    if ($current_qty > 0) {
+                        $derived_location_id = null;
+                        if (! empty($product_locations) && is_array($product_locations)) {
+                            $derived_location_id = $product_locations[0] ?? null;
+                        }
+                        if (empty($derived_location_id)) {
+                            $derived_location_id = BusinessLocation::where('business_id', $business_id)
+                                ->orderBy('id', 'asc')
+                                ->value('id');
+                        }
+                        if (! empty($derived_location_id)) {
+                            $opening_stock = [
+                                $derived_location_id => [
+                                    'quantity' => $current_qty,
+                                    'purchase_price' => $this->productUtil->num_uf($request->input('single_dpp', 0)),
+                                    'exp_date' => null,
+                                    'lot_number' => null,
+                                ],
+                            ];
+                            $opening_stock_filled = true;
+                            if (empty($product_locations)) {
+                                $product_locations = [$derived_location_id];
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (empty($product_locations) && ! empty($opening_stock)) {
+                $product_locations = array_keys($opening_stock);
+            }
+
+            if (! empty($product_locations)) {
+                $product->product_locations()->sync($product_locations);
+            }
+
+            if ($product->enable_stock == 1 && $opening_stock_filled) {
+                $user_id = $request->session()->get('user.id');
+                $transaction_date = $request->session()->get('financial_year.start');
+                $transaction_date = \Carbon::createFromFormat('Y-m-d', $transaction_date)->toDateTimeString();
+                $this->productUtil->addSingleProductOpeningStock($business_id, $product, $opening_stock, $transaction_date, $user_id);
             }
 
             //Add product racks details.
@@ -578,6 +640,11 @@ class ProductController extends Controller
         } elseif ($request->input('submit_type') == 'save_n_add_another') {
             return redirect()->action([\App\Http\Controllers\ProductController::class, 'create']
             )->with('status', $output);
+        } elseif ($request->input('submit_type') == 'save_n_print_label') {
+            return redirect()->action([\App\Http\Controllers\ProductController::class, 'create'], [
+                'print_labels' => 1,
+                'product_id' => $product->id
+            ])->with('status', $output);
         }
 
         return redirect('products')->with('status', $output);
@@ -1411,6 +1478,7 @@ class ProductController extends Controller
             $price_group_id = request()->input('price_group', '');
             $product_types = request()->get('product_types', []);
             $include_pos_index_fields = request()->boolean('pos_index');
+            $ignore_location = $include_pos_index_fields;
 
             $search_fields = request()->get('search_fields', ['name', 'sku']);
             if (in_array('sku', $search_fields)) {
@@ -1429,7 +1497,8 @@ class ProductController extends Controller
                     $search_fields,
                     $check_qty,
                     'exact',
-                    $include_pos_index_fields
+                    $include_pos_index_fields,
+                    $ignore_location
                 );
                 if ($exact_result->count() > 0) {
                     return json_encode($exact_result);
@@ -1446,7 +1515,8 @@ class ProductController extends Controller
                 $search_fields,
                 $check_qty,
                 'like',
-                $include_pos_index_fields
+                $include_pos_index_fields,
+                $ignore_location
             );
 
             return json_encode($result);

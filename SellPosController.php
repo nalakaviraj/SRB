@@ -2355,6 +2355,7 @@ class SellPosController extends Controller
                 'p.id as product_id',
                 'p.name',
                 'p.type',
+                'p.sku',
                 'p.enable_stock',
                 'p.image as product_image',
                 'variations.id',

@@ -262,6 +262,7 @@ Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone', 
     Route::get('/labels/show', [LabelsController::class, 'show']);
     Route::get('/labels/add-product-row', [LabelsController::class, 'addProductRow']);
     Route::get('/labels/preview', [LabelsController::class, 'preview']);
+    Route::get('/labels/quick-print-data', [LabelsController::class, 'quickPrintData']);
     Route::post('/labels/qz-pdf', [LabelsController::class, 'qzPdf']);
     Route::post('/labels/qz-test-lines', [LabelsController::class, 'qzTestLines']);
     Route::post('/labels/qz-tspl-config', [LabelsController::class, 'qzTsplConfig']);

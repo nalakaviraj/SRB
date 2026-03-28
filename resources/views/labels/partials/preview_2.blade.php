@@ -23,7 +23,7 @@
 
 					{{-- Business Name --}}
 					@if(!empty($print['business_name']))
-						<b style="display: block !important; font-size: {{$print['business_name_size']}}px">{{$business_name}}</b>
+						<b style="display: block !important; font-size: {{$print['business_name_size']}}px">SR&amp;BC</b>
 					@endif
 
 					{{-- Product Name --}}
@@ -68,7 +68,7 @@
 					@if(!empty($print['price']))
 					<span style="font-size: {{$print['price_size']}}px;">
 						@lang('lang_v1.price'):
-						<b>{{session('currency')['symbol'] ?? ''}}
+						<b>Rs 
 
 						
 						@if($print['price_type'] == 'inclusive')
