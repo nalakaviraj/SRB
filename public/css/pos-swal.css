@@ -1,0 +1,10 @@
+.pos-confirm-swal .swal-title {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.pos-confirm-swal .swal-text {
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+}

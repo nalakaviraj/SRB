@@ -1,0 +1,4 @@
+[2026-03-30 20:40:03] local.EMERGENCY: ERROR: NOT ALLOWED: Mismatch between sold and purchase quantity. Product: 50 l black bucket SKU: 0071 Quantity: 1 Business: SR&B Location: Main Business  
+[2026-03-30 20:40:03] local.EMERGENCY: File:/home/u907354579/domains/samarawickrama.lbmspark.com/public_html/app/Utils/TransactionUtil.phpLine:3441Message:ERROR: NOT ALLOWED: Mismatch between sold and purchase quantity. Product: 50 l black bucket SKU: 0071 Quantity: 1  
+[2026-03-30 20:40:39] local.EMERGENCY: ERROR: NOT ALLOWED: Mismatch between sold and purchase quantity. Product: 50 l black bucket SKU: 0071 Quantity: 1 Business: SR&B Location: Main Business  
+[2026-03-30 20:40:39] local.EMERGENCY: File:/home/u907354579/domains/samarawickrama.lbmspark.com/public_html/app/Utils/TransactionUtil.phpLine:3441Message:ERROR: NOT ALLOWED: Mismatch between sold and purchase quantity. Product: 50 l black bucket SKU: 0071 Quantity: 1  

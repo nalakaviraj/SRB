@@ -375,6 +375,23 @@ class ProductController extends Controller
 
         $brands = Brands::forDropdown($business_id);
         $units = Unit::forDropdown($business_id, true);
+        $default_unit_id = session('business.default_unit');
+        $pieces_unit_id = Unit::where('business_id', $business_id)
+            ->whereNull('base_unit_id')
+            ->where(function ($query) {
+                $query->whereRaw('LOWER(actual_name) IN ("pieces", "piece")')
+                    ->orWhereRaw('LOWER(short_name) IN ("pieces", "piece", "pcs")');
+            })
+            ->value('id');
+        if (! empty($pieces_unit_id)) {
+            $default_unit_id = $pieces_unit_id;
+        }
+        if (empty($default_unit_id) && ! empty($units)) {
+            $default_unit_id = array_key_first((array) $units);
+        }
+        if ($default_unit_id === '') {
+            $default_unit_id = null;
+        }
 
         $tax_dropdown = TaxRate::forBusinessDropdown($business_id, true, true);
         $taxes = $tax_dropdown['tax_rates'];
@@ -422,7 +439,7 @@ class ProductController extends Controller
         $pos_module_data = $this->moduleUtil->getModuleData('get_product_screen_top_view');
 
         return view('product.create')
-            ->with(compact('categories', 'brands', 'units', 'taxes', 'barcode_types', 'default_profit_percent', 'tax_attributes', 'barcode_default', 'business_locations', 'duplicate_product', 'sub_categories', 'rack_details', 'selling_price_group_count', 'module_form_parts', 'product_types', 'common_settings', 'warranties', 'pos_module_data'));
+            ->with(compact('categories', 'brands', 'units', 'default_unit_id', 'taxes', 'barcode_types', 'default_profit_percent', 'tax_attributes', 'barcode_default', 'business_locations', 'duplicate_product', 'sub_categories', 'rack_details', 'selling_price_group_count', 'module_form_parts', 'product_types', 'common_settings', 'warranties', 'pos_module_data'));
     }
 
     private function product_types()
@@ -457,6 +474,18 @@ class ProductController extends Controller
             $product_details = $request->only($form_fields);
             $product_details['business_id'] = $business_id;
             $product_details['created_by'] = $request->session()->get('user.id');
+
+            if (empty($product_details['barcode_type'])) {
+                $product_details['barcode_type'] = $this->productUtil->barcode_default();
+            }
+            if (! array_key_exists('weight', $product_details) || $product_details['weight'] === '' || $product_details['weight'] === null) {
+                $product_details['weight'] = 0;
+            }
+            if (! array_key_exists('preparation_time_in_minutes', $product_details)
+                || $product_details['preparation_time_in_minutes'] === ''
+                || $product_details['preparation_time_in_minutes'] === null) {
+                $product_details['preparation_time_in_minutes'] = 0;
+            }
 
             $product_details['enable_stock'] = (! empty($request->input('enable_stock')) && $request->input('enable_stock') == 1) ? 1 : 0;
             $product_details['not_for_selling'] = (! empty($request->input('not_for_selling')) && $request->input('not_for_selling') == 1) ? 1 : 0;
@@ -588,6 +617,15 @@ class ProductController extends Controller
 
             if (empty($product_locations) && ! empty($opening_stock)) {
                 $product_locations = array_keys($opening_stock);
+            }
+
+            if (empty($product_locations)) {
+                $default_location_id = BusinessLocation::where('business_id', $business_id)
+                    ->orderBy('id', 'asc')
+                    ->value('id');
+                if (! empty($default_location_id)) {
+                    $product_locations = [$default_location_id];
+                }
             }
 
             if (! empty($product_locations)) {

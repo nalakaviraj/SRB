@@ -26,7 +26,7 @@
             <div class="form-group">
                 {!! Form::label('name', __('product.product_name') . ':*') !!}
                 {!! Form::text('name', !empty($duplicate_product->name) ? $duplicate_product->name : null, ['class' => 'form-control', 'required',
-                'placeholder' => __('product.product_name')]); !!}
+                'placeholder' => __('product.product_name'), 'autofocus']); !!}
             </div>
         </div>
 
@@ -35,7 +35,7 @@
             <div class="form-group">
                 {!! Form::label('unit_id', __('product.unit') . ':*') !!}
                 <div class="input-group">
-                    {!! Form::select('unit_id', $units, !empty($duplicate_product->unit_id) ? $duplicate_product->unit_id : session('business.default_unit'), ['class' => 'form-control select2', 'required']); !!}
+                {!! Form::select('unit_id', $units, !empty($duplicate_product->unit_id) ? $duplicate_product->unit_id : $default_unit_id, ['class' => 'form-control select2', 'required']); !!}
                     <span class="input-group-btn">
                         <button type="button" @if(!auth()->user()->can('unit.create')) disabled @endif class="btn btn-default bg-white btn-flat btn-modal" data-href="{{action([\App\Http\Controllers\UnitController::class, 'create'], ['quick_add' => true])}}" title="@lang('unit.add_unit')" data-container=".view_modal"><i class="fa fa-plus-circle text-primary fa-lg"></i></button>
                     </span>
@@ -93,7 +93,7 @@
 
         @php
         $default_location = null;
-        if(count($business_locations) == 1){
+        if (count($business_locations) >= 1) {
         $default_location = array_key_first($business_locations->toArray());
         }
         @endphp
@@ -308,7 +308,7 @@
             <small class="text-muted">@lang('lang_v1.optional')</small>
         </div>
 
-        <div class="col-sm-4">
+        <div class="col-sm-4 hide">
             <div class="form-group">
                 {!! Form::label('product_locations', __('business.business_locations') . ':') !!} @show_tooltip(__('lang_v1.product_location_help'))
                 {!! Form::select('product_locations[]', $business_locations, $default_location, ['class' => 'form-control select2', 'multiple', 'id' => 'product_locations']); !!}
@@ -322,7 +322,7 @@
                 'placeholder' => __('product.sku')]); !!}
             </div>
         </div>
-        <div class="col-sm-4">
+        <div class="col-sm-4 hide">
             <div class="form-group">
                 {!! Form::label('barcode_type', __('product.barcode_type') . ':*') !!}
                 {!! Form::select('barcode_type', $barcode_types, !empty($duplicate_product->barcode_type) ? $duplicate_product->barcode_type : $barcode_default, ['class' => 'form-control select2', 'required']); !!}
@@ -347,7 +347,7 @@
             </div>
         </div>
 
-        <div class="col-sm-4">
+        <div class="col-sm-4 hide">
             <div class="form-group">
                 {!! Form::label('weight', __('lang_v1.weight') . ':') !!}
                 {!! Form::text('weight', !empty($duplicate_product->weight) ? $duplicate_product->weight : null, ['class' => 'form-control', 'placeholder' => __('lang_v1.weight')]); !!}
@@ -356,7 +356,7 @@
 
         <div class="clearfix"></div>
 
-        <div class="col-sm-4">
+        <div class="col-sm-4 hide">
             <div class="form-group">
                 {!! Form::label('preparation_time_in_minutes', __('lang_v1.preparation_time_in_minutes') . ':') !!}
                 {!! Form::number('preparation_time_in_minutes', !empty($duplicate_product->preparation_time_in_minutes) ? $duplicate_product->preparation_time_in_minutes : null, ['class' => 'form-control', 'placeholder' => __('lang_v1.preparation_time_in_minutes')]); !!}
